@@ -46,7 +46,9 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
                       col_type = c(join_key = "c", haul_join = "c"))
 
 
+# compute length comp test
 
+lcomp(lfreq, catch, join = 'both', exp_meth = 'expanded')
 
 
 
