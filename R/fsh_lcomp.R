@@ -16,12 +16,18 @@ lcomp <- function(lfreq, catch, join = NULL, exp_meth = NULL) {
     lfreq %>%
       tidytable::filter(!is.na(length),
                         !is.na(performance)) %>% 
-      tidytable::drop_na(haul_join) -> lfreq1
+      tidytable::drop_na(haul_join) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> lfreq1
   }
   if(join == 'both'){
     lfreq %>%
       tidytable::filter(!is.na(length),
-                        !is.na(performance)) -> lfreq1
+                        !is.na(performance)) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> lfreq1
   }
   
   if(exp_meth == 'marginal'){
@@ -29,30 +35,53 @@ lcomp <- function(lfreq, catch, join = NULL, exp_meth = NULL) {
     lfreq1 %>% 
       tidytable::summarise(freq = sum(frequency), .by = c(year, length)) %>% 
       tidytable::mutate(tot_freq = sum(freq), .by = c(year),
-                        lcomp = freq / tot_freq) %>% 
-      tidytable::select(year, length, lcomp) -> lcomp
+                        lcomp = freq / tot_freq,
+                        comp_type = 'total') %>% 
+      tidytable::select(year, length, comp_type, lcomp) %>% 
+      tidytable::bind_rows(lfreq1 %>% 
+                             tidytable::filter(sex != 'unknown') %>% 
+                             tidytable::summarise(freq = sum(frequency), .by = c(year, length, sex)) %>% 
+                             tidytable::mutate(tot_freq = sum(freq), .by = c(year, sex),
+                                               lcomp = freq / tot_freq) %>% 
+                             tidytable::select(year, length, sex, lcomp) %>% 
+                             tidytable::rename(comp_type = 'sex')) -> lcomp
   }
   
   if(exp_meth == 'expanded'){
     # compute expanded length comp (weighted by observer catch)
-    lfreq1 %>% 
+    
+    # combined sex 'total' length comps
+    lfreq1 %>%
+      tidytable::select(year, haul_join, length, frequency) %>% 
+      tidytable::summarize(freq = sum(frequency), .by = c(year, haul_join, length)) %>% 
       tidytable::left_join(catch %>% 
                              tidytable::select(haul_join, extrapolated_number)) %>%
-      tidytable::select(year, haul_join, length, frequency, extrapolated_number) %>%
-      tidytable::drop_na() %>%
-      tidytable::distinct(year, haul_join, extrapolated_number) %>%
-      tidytable::mutate(p_haul = extrapolated_number / sum(extrapolated_number),
-                        .by = c(year)) -> p_haul # proportion of catch across hauls sampled for length
-    
-    lfreq1 %>% 
-      tidytable::left_join(p_haul) %>%
-      tidytable::select(year, haul_join, length, frequency, p_haul) %>%
-      tidytable::drop_na() %>%
-      tidytable::mutate(p_hlen = frequency / sum(frequency), .by = c (year, haul_join)) %>% # compute haul length comps
-      tidytable::mutate(n_len = sum(frequency), .by = c(year, length)) %>% # compute number of samples by length bin
-      tidytable::mutate(wtd_freq = p_haul * p_hlen * n_len) %>% # compute weighted length frequencies per haul
-      tidytable::summarise(length_tot = sum(wtd_freq), .by = c(year, length)) -> lcomp
+      tidytable::drop_na() %>% 
+      tidytable::mutate(tot_freq = sum(freq), .by = c(year, haul_join)) %>% 
+      tidytable::mutate(hl_lcomp = freq / tot_freq, # compute haul length comps
+                        len_extrap = hl_lcomp * extrapolated_number) %>%  # compute weighted length frequencies per haul
+      tidytable::summarize(wtd_freq = sum(len_extrap), .by = c(year, length)) %>% 
+      tidytable::mutate(tot_wtd_freq = sum(wtd_freq), .by = c(year)) %>% 
+      tidytable::mutate(lcomp = wtd_freq / tot_wtd_freq) %>%   # compute catch weighted length composition
+      tidytable::mutate(comp_type = 'total') %>%
+      tidytable::select(year, length, comp_type, lcomp) %>% 
+      # sex-specific length comps
+      tidytable::bind_rows(lfreq1 %>%
+                             tidytable::select(year, haul_join, length, sex, frequency) %>%
+                             tidytable::filter(sex != 'unknown') %>% 
+                             tidytable::summarize(freq = sum(frequency), .by = c(year, haul_join, length, sex)) %>% 
+                             tidytable::left_join(catch %>% 
+                                                    tidytable::select(haul_join, extrapolated_number)) %>%
+                             tidytable::drop_na() %>% 
+                             tidytable::mutate(tot_freq = sum(freq), .by = c(year, haul_join, sex)) %>% 
+                             tidytable::mutate(hl_lcomp = freq / tot_freq, # compute haul length comps
+                                               len_extrap = hl_lcomp * extrapolated_number) %>%  # compute weighted length frequencies per haul
+                             tidytable::summarize(wtd_freq = sum(len_extrap), .by = c(year, length, sex)) %>% 
+                             tidytable::mutate(tot_wtd_freq = sum(wtd_freq), .by = c(year, sex)) %>% 
+                             tidytable::mutate(lcomp = wtd_freq / tot_wtd_freq) %>%   # compute catch weighted length composition
+                             tidytable::rename(comp_type = 'sex') %>% 
+                             tidytable::select(year, length, comp_type, lcomp)) -> lcomp
   }
-
+  
   lcomp
 }
