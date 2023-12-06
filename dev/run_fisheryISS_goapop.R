@@ -11,6 +11,7 @@ library(tidytable)
 library(psych)
 library(vroom)
 library(here)
+library(afscdata)
 
 source_files <- list.files(here::here("R"), "*.R$")
 map(here::here("R", source_files), source)
@@ -27,7 +28,7 @@ if(iters < 100){
 # run for gulf of alaska pacific ocean perch ----
 
 # pull data
-query = FALSE
+query = TRUE
 species = 301
 year = 2023
 area = "GOA"
@@ -51,9 +52,9 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
 
 # compute length comp test
 
-lcomp(lfreq, catch, join = 'both', exp_meth = 'expanded')
+lencomp <- lcomp(lfreq, catch, join = 'both', exp_meth = 'expanded')
 
-
+acomp(agedat = specimen, lencomp, join = 'both', exp_meth = 'expanded')
 
 
 

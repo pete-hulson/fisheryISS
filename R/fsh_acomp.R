@@ -1,108 +1,99 @@
-#' population at age
+#' compute fishery age comp
 #'
-#' @param lpop length population data
-#' @param agedat age dataframe
-#' @param sex_spec determine whether computing for sex-specific or total comps
+#' @param agedat age specimen data
+#' @param lencomp length composition
+#' @param join use 'haul' only, or 'both' haul and port samples (default NULL)
+#' @param exp_meth compute age comps as 'marginal' or 'expanded' (default NULL)
 #'
 #' @return
 #' @export
 #'
 #' @examples
-apop <- function(lpop, agedat, sex_spec = TRUE){
+acomp <- function(agedat, lencomp, join, exp_meth){
   
-  # reformat size pop'n data
-  if(isTRUE(sex_spec)){
-    lpop %>%
-      tidytable::pivot_longer(cols = c(males, females, unsexed), names_to = "sex") %>%
-      tidytable::mutate(sex = tidytable::case_when(sex == 'males' ~ 1,
-                                                     sex == 'females' ~ 2,
-                                                     TRUE ~ 3)) %>%
-      tidytable::rename(sizepop = value) %>% 
-      tidytable::select(-type) -> .lpop_long
-  } else{
-    lpop %>%
-      tidytable::pivot_longer(cols = c(total), names_to = "sex") %>%
-      tidytable::mutate(sex = tidytable::case_when(sex == 'total' ~ 1)) %>%
-      tidytable::rename(sizepop = value) %>% 
-      tidytable::select(-type) -> .lpop_long
+  
+  if(join == 'haul'){
+    agedat %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::drop_na(haul_join) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> agedat1
+  }
+  if(join == 'both'){
+    agedat %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> agedat1
+  }
+
+  
+  
+  # compute marginal age comps ----
+  if(exp_meth == 'marginal'){
+  # combined sex 'total' age comp
+  agedat1 %>%
+    tidytable::summarise(afreq = tidytable::n(), .by = c(age, year)) %>% 
+    tidytable::mutate(tot = sum(afreq), .by = year) %>% 
+    tidytable::mutate(acomp = afreq / tot) %>% 
+    tidytable::select(year, age, acomp) %>% 
+    tidytable::mutate(comp_type = 'total') %>% 
+    # sex-specific age comp
+    tidytable::bind_rows(agedat1 %>%
+                           tidytable::filter(sex!= 'unknown') %>% 
+                           tidytable::summarise(afreq = tidytable::n(), .by = c(age, year, sex)) %>% 
+                           tidytable::mutate(tot = sum(afreq), .by = c(year, sex)) %>% 
+                           tidytable::mutate(acomp = afreq / tot) %>% 
+                           tidytable::select(year, age, sex, acomp) %>% 
+                           tidytable::rename(comp_type = 'sex')) -> acomp
+  }
+    
+  
+  # compute expanded age comps (expanded with age-length key) ----
+  if(exp_meth == 'expanded'){
+    # combined sex 'total' age comp
+    agedat1 %>%
+      tidytable::mutate(n_l = tidytable::n(), .by = c(year, age, length)) %>%
+      tidytable::select(year, age, length, n_l) %>%
+      tidytable::summarise(n_l = mean(n_l), .by = c(year, age, length)) %>%
+      tidytable::mutate(N_l = sum(n_l), .by = c(year, length)) %>%
+      tidytable::mutate(prop_al = n_l / N_l) %>% # age-length key
+      tidytable::left_join(lencomp %>% 
+                             tidytable::filter(comp_type == 'total') %>% 
+                             tidytable::select(year, length, lcomp)) %>%
+      tidytable::drop_na() %>%
+      tidytable::mutate(prop = prop_al * lcomp) %>%
+      tidytable::summarise(acomp = sum(prop), .by = c(year, age)) %>% 
+      tidytable::mutate(acomp_tot = sum(acomp), .by = c(year)) %>% # restandardize to sum to 1
+      tidytable::mutate(acomp_corr = acomp / acomp_tot) %>% 
+      tidytable::select(year, age, acomp_corr) %>% 
+      tidytable::rename(acomp = 'acomp_corr') %>% 
+      tidytable::mutate(comp_type = 'total') %>% 
+      # sex-specific age comp
+      tidytable::bind_rows(agedat1 %>%
+                             tidytable::filter(sex != 'unknown') %>% 
+                             tidytable::mutate(n_l = tidytable::n(), .by = c(year, age, length, sex)) %>%
+                             tidytable::select(year, age, length, sex, n_l) %>%
+                             tidytable::arrange(age, length) %>%
+                             tidytable::summarise(n_l = mean(n_l), .by = c(year, age, length, sex)) %>%
+                             tidytable::mutate(N_l = sum(n_l), .by = c(year, length, sex)) %>%
+                             tidytable::mutate(prop_al = n_l / N_l) %>% # age-length key
+                             tidytable::left_join(lencomp %>% 
+                                                    tidytable::filter(comp_type != 'total') %>% 
+                                                    tidytable::rename(sex = 'comp_type')) %>%
+                             tidytable::drop_na() %>%
+                             tidytable::mutate(prop = prop_al * lcomp) %>%
+                             tidytable::summarise(acomp = sum(prop), .by = c(year, age, sex)) %>% 
+                             tidytable::mutate(acomp_tot = sum(acomp), .by = c(year, sex)) %>%  # restandardize to sum to 1
+                             tidytable::mutate(acomp_corr = acomp / acomp_tot) %>% 
+                             tidytable::select(year, age, sex, acomp_corr) %>% 
+                             tidytable::rename(acomp = 'acomp_corr',
+                                               comp_type = 'sex')) -> acomp
   }
   
-  # compute resampled age pop'n for females & males
-  agedat %>%
-    tidytable::drop_na() %>%
-    tidytable::summarise(age_num = .N, .by = c(year, species_code, sex, length, age, type)) %>% 
-    tidytable::mutate(age_frac = age_num/sum(age_num), 
-                       .by = c(year, species_code, sex, length, type)) %>% 
-    tidytable::left_join(.lpop_long) %>%
-    tidytable::drop_na() %>% 
-    tidytable::mutate(agepop = age_frac * sizepop, 
-                       .by = c(year, species_code, sex, length, type)) %>%
-    tidytable::mutate(agepop = sum(agepop), 
-                       .by = c(year, species_code, sex, age, type)) %>%
-    tidytable::select(year, species_code, sex, age, agepop, type) %>%
-    unique(., by = c('year', 'species_code', 'sex', 'age', 'agepop', 'type')) %>% 
-    tidytable::filter(sex != 3) -> .agepop_mf
-  
-  # compute resampled age pop'n for unsexed (og rule is if you have a year with unsexed specimen data you use all the specimen data)
-  agedat %>%
-    tidytable::drop_na() %>% 
-    tidytable::summarise(n = .N, .by = c('year', 'species_code', 'sex', 'type')) %>%
-    tidytable::filter(sex == 3) %>%
-    tidytable::select(year, species_code, n) -> .sex_cnt_ag
-  
-  if(length(.sex_cnt_ag$n)>0){
-    if(isTRUE(sex_spec)){
-      .lpop_long %>%
-        tidytable::filter(sex == 3) -> .lpop_long_un
-      agedat %>%
-        tidytable::left_join(.sex_cnt_ag) %>%
-        tidytable::filter(n > 0) %>%
-        tidytable::summarise(age_num = .N, .by = c(year, species_code, length, age, type)) %>% 
-        tidytable::mutate(age_frac = age_num/sum(age_num), 
-                           .by = c(year, species_code, length, type)) %>%
-        tidytable::left_join(.lpop_long_un) %>%
-        tidytable::drop_na() %>% 
-        tidytable::mutate(agepop = age_frac * sizepop, 
-                           .by = c(year, species_code, length, type)) %>%
-        tidytable::mutate(agepop = sum(agepop), 
-                           .by = c(year, species_code, age, type)) %>%
-        unique(., by = c('year', 'species_code', 'sex', 'age', 'agepop', 'type')) %>%
-        tidytable::select(-c(length, age_num, age_frac, sizepop)) %>% 
-        tidytable::bind_rows(.agepop_mf) %>%
-        tidytable::pivot_wider(names_from = sex, values_from = agepop, values_fill = 0) %>%
-        tidytable::rename(unsexed = '3', males = '1', females = '2') 
-    } else{
-      .lpop_long %>%
-        tidytable::filter(sex == 3) -> .lpop_long_un
-      agedat %>%
-        tidytable::left_join(.sex_cnt_ag) %>%
-        tidytable::filter(n > 0) %>%
-        tidytable::summarise(age_num = .N, .by = c(year, species_code, length, age, type)) %>% 
-        tidytable::mutate(age_frac = age_num/sum(age_num), 
-                           .by = c(year, species_code, length, type)) %>%
-        tidytable::left_join(.lpop_long_un) %>%
-        tidytable::drop_na() %>% 
-        tidytable::mutate(agepop = age_frac * sizepop, 
-                           .by = c(year, species_code, length, type)) %>%
-        tidytable::mutate(agepop = sum(agepop), 
-                           .by = c(year, species_code, age, type)) %>%
-        unique(., by = c('year', 'species_code', 'sex', 'age', 'agepop', 'type')) %>%
-        tidytable::select(-c(length, age_num, age_frac, sizepop)) %>% 
-        tidytable::bind_rows(.agepop_mf) %>%
-        tidytable::pivot_wider(names_from = sex, values_from = agepop, values_fill = 0) %>%
-        tidytable::rename(total = '1') 
-    }
-  } else{
-    if(isTRUE(sex_spec)){
-      .agepop_mf %>%
-        tidytable::pivot_wider(names_from = sex, values_from = agepop, values_fill = 0) %>%
-        tidytable::rename(males = '1', females = '2') %>%
-        tidytable::mutate(unsexed = 0) 
-    } else{
-      .agepop_mf %>%
-        tidytable::pivot_wider(names_from = sex, values_from = agepop, values_fill = 0) %>%
-        tidytable::rename(total = '1')
-    }
-  }
-  
+  acomp
+
 }
