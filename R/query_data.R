@@ -51,7 +51,7 @@ query_data <- function(species, year = NULL, area) {
   # get specimen data ----
   cols = c("year", "performance", "specimen_type", "join_key", "haul_join", "port_join",
            "species", "fmp_gear", "fmp_area", "fmp_subarea", 
-           "age", "length", "weight")
+           "age", "length", "weight", "sex")
   
   table <- dplyr::tbl(akfin, dplyr::sql("norpac.debriefed_age_mv")) %>% 
     dplyr::rename_with(tolower) %>% 

@@ -27,11 +27,14 @@ if(iters < 100){
 # run for gulf of alaska pacific ocean perch ----
 
 # pull data
+query = FALSE
 species = 301
 year = 2023
 area = "GOA"
 
-query_data(species, year, area)
+if(isTRUE(query)){
+  query_data(species, year, area)
+}
 
 specimen <- vroom::vroom(here::here("data", "fsh_specimen_data.txt"),
                          delim = ",",
