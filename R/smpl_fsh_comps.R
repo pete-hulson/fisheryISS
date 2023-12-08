@@ -6,6 +6,8 @@
 #' @param r_t reader/tester ageing data 
 #' @param yrs age filter returns years >= (default = NULL)
 #' @param bin length bin size (default = 1 cm)
+#' @param join use 'haul' only, or 'both' haul and port samples for age/length (default NULL)
+#' @param exp_meth compute age/length comps as 'marginal' or 'expanded' (default NULL)
 #' @param boot_primes switch for resampling primary sampling unit, like hauls or trip (default = FALSE)
 #' @param boot_lengths switch for resampling lengths (default = FALSE)
 #' @param boot_ages switch for resampling ages (default = FALSE)
@@ -20,7 +22,7 @@
 #' @examples
 #' 
 
-fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
+fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
                        boot_primes, boot_lengths, boot_ages, sex_spec, al_var, al_var_ann, age_err) {
   # globals ----
   # year switch
@@ -29,7 +31,9 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
   # prep data ----
   # first pass of filtering and combine port/haul joins to single join value ('prime_join')
   data.table::setDT(catch_data) %>%
-    tidytable::filter(year >= yrs) -> .catch
+      tidytable::filter(year >= yrs) %>% 
+      tidytable::mutate(prime_join = haul_join,
+                        species = species_key) -> .catch
   
   data.table::setDT(lfreq_data) %>%
     tidytable::filter(year >= yrs) -> lfreq1
@@ -95,10 +99,37 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
     tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .lfreq_un
   
   # length comp ----
-  lcomp(.lfreq_un) -> .lcomp
   
-  # length population ----
-  lpop(.lcomp, .cpue, .lngs) -> .lpop
+  # clean data and determine if haul, or both haul and port data to be used
+  if(join == 'haul'){
+    .lfreq_un %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::drop_na(haul_join) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) %>% 
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
+  }
+  if(join == 'both'){
+    .lfreq_un %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) %>% 
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
+  }
+  
+
+  lcomp(lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth)
+
+  
+  
+  
+  
+  
+  
   
   # randomize age ----
   if(isTRUE(boot_ages)) {
