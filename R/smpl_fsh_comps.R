@@ -77,7 +77,7 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
       tidytable::left_join(.lfreq_un) -> .lfreq_un_hl
     
     .hls_age %>% 
-      tidytable::left_join(.agedat)  -> .agedat_res_hl
+      tidytable::left_join(.agedat)  -> .agedat_hl
     
   } 
   
@@ -118,57 +118,73 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
   }
   
 
-  lcomp(lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth)
+  lcomp(lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth) -> .lcomp
 
-  
-  
-  
-  
-  
-  
-  
   # randomize age ----
   if(isTRUE(boot_ages)) {
-    boot_age(.agedat) %>% 
-      tidytable::mutate(type = 'base') -> .agedat
+    boot_age(.agedat_hl) %>% 
+      tidytable::mutate(type = 'base') -> .agedat_hlage
   } else{
-    .agedat %>% 
-      tidytable::mutate(type = 'base') -> .agedat
+    .agedat_hl %>% 
+      tidytable::mutate(type = 'base') -> .agedat_hlage
   }
   
-  # add age-length variability ----
-  if(isTRUE(al_var)) {
-    al_variab(.agedat, annual = al_var_ann)  %>% 
-      tidytable::mutate(type = 'al') -> .agedat_al
+  # # add age-length variability ----
+  # if(isTRUE(al_var)) {
+  #   al_variab(.agedat_hl, annual = al_var_ann)  %>%
+  #     tidytable::mutate(type = 'al') -> .agedat_al
+  # }
+  # 
+  # # add ageing error ----
+  # if(isTRUE(age_err)) {
+  #   age_error(.agedat_hl, r_t)  %>%
+  #     tidytable::mutate(type = 'ae') -> .agedat_ae
+  # }
+  # 
+  # # with age-length and ageing error ----
+  # if(isTRUE(al_var) & isTRUE(age_err)) {
+  #   age_error(.agedat_al, r_t)  %>%
+  #     tidytable::mutate(type = 'ae_al') %>%
+  #     tidytable::bind_rows(.agedat_al) %>%
+  #     tidytable::bind_rows(.agedat_ae) %>%
+  #     tidytable::bind_rows(.agedat_hlage) -> .agedat_hlage
+  # } else if(isTRUE(al_var) & !isTRUE(age_err)){
+  #   .agedat_hlage %>%
+  #     tidytable::bind_rows(.agedat_al) -> .agedat_hlage
+  # } else if(!isTRUE(al_var) & isTRUE(age_err)){
+  #   .agedat_hlage %>%
+  #     tidytable::bind_rows(.agedat_ae) -> .agedat_hlage
+  # }
+  
+  # bin age data ----
+  .agedat_hlage %>% 
+    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .agedat_hlage_bin
+  
+  # age comp ----
+  
+  # clean data and determine if haul, or both haul and port data to be used
+  if(join == 'haul'){
+    .agedat_hlage_bin %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::drop_na(haul_join) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> .agedat_samp
+  }
+  if(join == 'both'){
+    .agedat_hlage_bin %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                   sex == 'U' ~ 'unknown',
+                                                   sex == 'M' ~ 'male')) -> .agedat_samp
   }
   
-  # add ageing error ----
-  if(isTRUE(age_err)) {
-    age_error(.agedat, r_t)  %>% 
-      tidytable::mutate(type = 'ae') -> .agedat_ae
-  }
   
-  # with age-length and ageing error ----
-  if(isTRUE(al_var) & isTRUE(age_err)) {
-    age_error(.agedat_al, r_t)  %>% 
-      tidytable::mutate(type = 'ae_al') %>% 
-      tidytable::bind_rows(.agedat_al) %>% 
-      tidytable::bind_rows(.agedat_ae) %>% 
-      tidytable::bind_rows(.agedat) -> .agedat
-  } else if(isTRUE(al_var) & !isTRUE(age_err)){
-    .agedat %>% 
-      tidytable::bind_rows(.agedat_al) -> .agedat
-  } else if(!isTRUE(al_var) & isTRUE(age_err)){
-    .agedat %>% 
-      tidytable::bind_rows(.agedat_ae) -> .agedat
-  }
+  acomp(agedat = .agedat_samp, lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth) -> .acomp
   
-  .agedat %>% 
-    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .agedat
-  
-  # age population ----
-  apop(.lpop, .agedat, sex_spec = sex_spec) -> .apop
-  
-  list(age = .apop, length = .lpop)
+
+  list(age = .acomp, length = .lcomp)
   
 }

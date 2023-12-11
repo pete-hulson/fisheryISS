@@ -28,7 +28,7 @@ if(iters < 100){
 # run for gulf of alaska pacific ocean perch ----
 
 # pull data
-query = TRUE
+query = FALSE
 species = 301
 year = 2023
 area = "GOA"
@@ -50,9 +50,33 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
                       col_type = c(join_key = "c", haul_join = "c"))
 
 
-# compute length comp test
+# for development testing
 
-lencomp <- lcomp(lfreq, catch, join = 'both', exp_meth = 'expanded')
+
+
+lfreq_data = lfreq
+specimen_data = specimen
+catch_data = catch
+yrs = 2015
+bin = 1
+join = 'both'
+exp_meth = 'expanded'
+boot_primes = TRUE
+boot_lengths = TRUE
+boot_ages = TRUE
+
+
+r_t
+sex_spec
+al_var
+al_var_ann
+age_err
+
+
+
+
+
+lcomp(lfreq, catch, exp_meth = 'expanded')
 
 acomp(agedat = specimen, lencomp, join = 'both', exp_meth = 'expanded')
 
