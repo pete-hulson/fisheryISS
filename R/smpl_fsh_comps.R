@@ -102,7 +102,7 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
                                                    sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, primejoin_unq, type, species, sex, length)) -> .lfreq_samp
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, type, species, sex, length)) -> .lfreq_samp
   }
   if(join == 'both'){
     .lfreq_un_hlen_bin %>%
@@ -111,7 +111,7 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
                                                    sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, primejoin_unq, type, species, sex, length)) -> .lfreq_samp
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, type, species, sex, length)) -> .lfreq_samp
   }
   
 
