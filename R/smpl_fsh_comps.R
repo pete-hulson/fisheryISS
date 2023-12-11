@@ -74,51 +74,47 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
       tidytable::mutate(primejoin_unq = .I) -> .hls_age
 
     .hls_len %>% 
-      tidytable::left_join(.lfreq_un) %>% 
-      tidytable::rename(primejoin_orig = 'prime_join',
-                        prime_join = 'primejoin_unq') -> .lfreq_un
+      tidytable::left_join(.lfreq_un) -> .lfreq_un_hl
     
     .hls_age %>% 
-      tidytable::left_join(.agedat) %>% 
-      tidytable::rename(primejoin_orig = 'prime_join',
-                        prime_join = 'primejoin_unq')  -> .agedat
+      tidytable::left_join(.agedat)  -> .agedat_res_hl
     
   } 
   
   # randomize lengths ----
   if(isTRUE(boot_lengths)) {
-    boot_length(.lfreq_un) %>% 
-      tidytable::mutate(type = 'base') -> .lfreq_un
+    boot_length(.lfreq_un_hl) %>% 
+      tidytable::mutate(type = 'base') -> .lfreq_un_hlen
   } else{
-    .lfreq_un %>% 
-      tidytable::mutate(type = 'base') -> .lfreq_un
+    .lfreq_un_hl %>% 
+      tidytable::mutate(type = 'base') -> .lfreq_un_hlen
   }
   
   # bin length data ----
-  .lfreq_un %>% 
-    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .lfreq_un
+  .lfreq_un_hlen %>% 
+    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .lfreq_un_hlen_bin
   
   # length comp ----
   
   # clean data and determine if haul, or both haul and port data to be used
   if(join == 'haul'){
-    .lfreq_un %>%
+    .lfreq_un_hlen_bin %>%
       tidytable::filter(!is.na(length),
                         !is.na(performance)) %>% 
       tidytable::drop_na(haul_join) %>% 
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
                                                    sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, primejoin_unq, type, species, sex, length)) -> .lfreq_samp
   }
   if(join == 'both'){
-    .lfreq_un %>%
+    .lfreq_un_hlen_bin %>%
       tidytable::filter(!is.na(length),
                         !is.na(performance)) %>% 
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
                                                    sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, primejoin_unq, type, species, sex, length)) -> .lfreq_samp
   }
   
 
