@@ -11,7 +11,6 @@
 #' @param boot_primes switch for resampling primary sampling unit, like hauls or trip (default = FALSE)
 #' @param boot_lengths switch for resampling lengths (default = FALSE)
 #' @param boot_ages switch for resampling ages (default = FALSE)
-#' @param sex_spec determine whether to do sex specific or total comps (default = TRUE)
 #' @param al_var switch for including age-length variability (default = FALSE)
 #' @param al_var_ann resample age-length annually or pooled across years
 #' @param age_err switch for including ageing error (default = FALSE)
@@ -23,7 +22,7 @@
 #' 
 
 fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
-                       boot_primes, boot_lengths, boot_ages, sex_spec, al_var, al_var_ann, age_err) {
+                       boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) {
   # globals ----
   # year switch
   if (is.null(yrs)) yrs <- 0
@@ -67,11 +66,9 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
   # randomize primary sampling unit (hauls/trips) ----  
   if(isTRUE(boot_primes)) {
     
-    boot_prime(.lfreq) %>% 
-      tidytable::mutate(primejoin_unq = .I) -> .hls_len
+    boot_prime(.lfreq) -> .hls_len
     
-    boot_prime(.agedat) %>% 
-      tidytable::mutate(primejoin_unq = .I) -> .hls_age
+    boot_prime(.agedat) -> .hls_age
 
     .hls_len %>% 
       tidytable::left_join(.lfreq_un) -> .lfreq_un_hl
