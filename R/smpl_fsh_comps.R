@@ -16,12 +16,12 @@
 #' @param age_err switch for including ageing error (default = FALSE)
 #'
 #' @return
-#' @export fsh_comps
+#' @export smpl_fsh_comps
 #'
 #' @examples
 #' 
 
-fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
+smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
                        boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) {
   # globals ----
   # year switch
@@ -76,7 +76,12 @@ fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join
     .hls_age %>% 
       tidytable::left_join(.agedat)  -> .agedat_hl
     
-  } 
+  } else{
+    
+    .lfreq_un_hl <- .lfreq_un
+    .agedat_hl <- .agedat
+    
+  }
   
   # randomize lengths ----
   if(isTRUE(boot_lengths)) {
