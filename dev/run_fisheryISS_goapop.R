@@ -52,6 +52,27 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
 
 # for development testing
 
+fsh_iss(iters = iters, 
+        lfreq_data = lfreq, 
+        specimen_data = specimen, 
+        catch_data = catch, 
+        r_t = NULL, 
+        yrs = 2015, 
+        bin = 1, 
+        join = 'both', 
+        exp_meth = 'expanded', 
+        boot_primes = TRUE, 
+        boot_lengths = TRUE, 
+        boot_ages = TRUE, 
+        al_var = FALSE, 
+        al_var_ann = FALSE, 
+        age_err = FALSE, 
+        region = area, 
+        save = 'prod')
+
+
+
+
 
 
 lfreq_data = lfreq
@@ -70,8 +91,8 @@ al_var_ann = FALSE
 age_err = FALSE
 
 
-fsh_comps(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
-          boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) 
+smpl_fsh_comps(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
+               boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) 
 
 
 
