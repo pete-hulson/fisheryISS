@@ -94,7 +94,7 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
   
   # bin length data ----
   .lfreq_un_hlen %>% 
-    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .lfreq_un_hlen_bin
+    tidytable::mutate(length = bin * ceiling(length / bin)) -> .lfreq_un_hlen_bin
   
   # length comp ----
   
