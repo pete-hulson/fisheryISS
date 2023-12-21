@@ -116,9 +116,9 @@ fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs =
     vroom::vroom_write(iss_size, here::here("output", region, paste0(save, "_iss_sz.csv")), delim = ",")    
     vroom::vroom_write(iss_age, here::here("output", region, paste0(save, "_iss_ag.csv")), delim = ",")
   } else if(save != 'prod'){
-    vroom::vroom_write(.ess_size1, here::here("output", region, 'add_err', paste0(save, "_iter_ess_sz.csv")), delim = ",")
-    vroom::vroom_write(.ess_age1, here::here("output", region, 'add_err', paste0(save, "_iter_ess_ag.csv")), delim = ",")
-    vroom::vroom_write(iss_size, here::here("output", region, 'add_err', paste0(save, "_iss_sz.csv")), delim = ",")    
-    vroom::vroom_write(iss_age, here::here("output", region, 'add_err', paste0(save, "_iss_ag.csv")), delim = ",")
+    vroom::vroom_write(.ess_size1, here::here("output", region, 'dev', paste0(save, "_iter_ess_sz.csv")), delim = ",")
+    vroom::vroom_write(.ess_age1, here::here("output", region, 'dev', paste0(save, "_iter_ess_ag.csv")), delim = ",")
+    vroom::vroom_write(iss_size, here::here("output", region, 'dev', paste0(save, "_iss_sz.csv")), delim = ",")    
+    vroom::vroom_write(iss_age, here::here("output", region, 'dev', paste0(save, "_iss_ag.csv")), delim = ",")
   }
 }
