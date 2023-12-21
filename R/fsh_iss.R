@@ -33,8 +33,8 @@ fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs =
     dir.create(here::here('output', region), recursive = TRUE)
   }
   # create storage location
-  if(!dir.exists(here::here('output', region, 'add_err')) & (isTRUE(al_var) | isTRUE(age_err))){
-    dir.create(here::here('output', region, 'add_err'), recursive = TRUE)
+  if(!dir.exists(here::here('output', region, 'dev')) & save != 'prod'){
+    dir.create(here::here('output', region, 'dev'), recursive = TRUE)
   }
   
   # restructure data

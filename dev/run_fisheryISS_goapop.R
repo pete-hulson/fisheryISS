@@ -18,7 +18,7 @@ map(here::here("R", source_files), source)
 
 # set number of desired bootstrap iterations (suggested here: 10 for testing, 500 for running)
 #iters = 500
-iters = 5
+iters = 50
 
 # for testing run time
 if(iters < 100){
@@ -51,7 +51,26 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
 
 
 # for development testing
+# test marginal comps
+fsh_iss(iters = iters, 
+        lfreq_data = lfreq, 
+        specimen_data = specimen, 
+        catch_data = catch, 
+        r_t = NULL, 
+        yrs = 2015, 
+        bin = 1, 
+        join = 'both', 
+        exp_meth = 'marginal', 
+        boot_primes = TRUE, 
+        boot_lengths = TRUE, 
+        boot_ages = TRUE, 
+        al_var = FALSE, 
+        al_var_ann = FALSE, 
+        age_err = FALSE, 
+        region = area, 
+        save = 'marg')
 
+# test expanded comps
 fsh_iss(iters = iters, 
         lfreq_data = lfreq, 
         specimen_data = specimen, 
@@ -68,41 +87,7 @@ fsh_iss(iters = iters,
         al_var_ann = FALSE, 
         age_err = FALSE, 
         region = area, 
-        save = 'prod')
-
-
-
-
-
-
-lfreq_data = lfreq
-specimen_data = specimen
-catch_data = catch
-yrs = 2015
-bin = 1
-join = 'both'
-exp_meth = 'expanded'
-boot_primes = TRUE
-boot_lengths = TRUE
-boot_ages = TRUE
-r_t = NULL
-al_var = FALSE
-al_var_ann = FALSE
-age_err = FALSE
-
-
-smpl_fsh_comps(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
-               boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) 
-
-
-
-
-
-
-
-
-
-
+        save = 'exp')
 
 # For testing run time of 500 iterations ----
 if(iters < 100){
