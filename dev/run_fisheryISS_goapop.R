@@ -11,6 +11,8 @@ library(tidytable)
 library(psych)
 library(vroom)
 library(here)
+
+# devtools::install_github("afsc-assessments/afscdata", force = TRUE)
 library(afscdata)
 
 source_files <- list.files(here::here("R"), "*.R$")
