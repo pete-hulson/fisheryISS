@@ -15,16 +15,16 @@ lcomp <- function(lfreq, catch, exp_meth = NULL) {
     # combined sex 'total' length comps
     lfreq %>% 
       tidytable::summarise(freq = sum(frequency), .by = c(year, species, type, length)) %>% 
-      tidytable::mutate(tot_freq = sum(freq), .by = c(year),
-                        lcomp = freq / tot_freq,
-                        comp_type = 'total') %>% 
+      tidytable::mutate(tot_freq = sum(freq),
+                        lcomp = freq / tot_freq, .by = c(year)) %>% 
+      tidytable::mutate(comp_type = 'total') %>% 
       tidytable::select(year, species, type, length, comp_type, lcomp) %>% 
       # sex-specific length comps
       tidytable::bind_rows(lfreq %>% 
                              tidytable::filter(sex != 'unknown') %>% 
                              tidytable::summarise(freq = sum(frequency), .by = c(year, species, type, length, sex)) %>% 
-                             tidytable::mutate(tot_freq = sum(freq), .by = c(year, sex),
-                                               lcomp = freq / tot_freq) %>% 
+                             tidytable::mutate(tot_freq = sum(freq),
+                                               lcomp = freq / tot_freq, .by = c(year, sex)) %>% 
                              tidytable::select(year, species, type, length, sex, lcomp) %>% 
                              tidytable::rename(comp_type = 'sex')) -> lcomp
   }
@@ -34,16 +34,16 @@ lcomp <- function(lfreq, catch, exp_meth = NULL) {
     # first compute marginal length comps for missing years for expanded comps
     lfreq %>% 
       tidytable::summarise(freq = sum(frequency), .by = c(year, species, type, length)) %>% 
-      tidytable::mutate(tot_freq = sum(freq), .by = c(year),
-                        lcomp = freq / tot_freq,
-                        comp_type = 'total') %>% 
+      tidytable::mutate(tot_freq = sum(freq),
+                        lcomp = freq / tot_freq, .by = c(year)) %>% 
+    tidytable::mutate(comp_type = 'total') %>% 
       tidytable::select(year, species, type, length, comp_type, lcomp) %>% 
       # sex-specific length comps
       tidytable::bind_rows(lfreq %>% 
                              tidytable::filter(sex != 'unknown') %>% 
                              tidytable::summarise(freq = sum(frequency), .by = c(year, species, type, length, sex)) %>% 
-                             tidytable::mutate(tot_freq = sum(freq), .by = c(year, sex),
-                                               lcomp = freq / tot_freq) %>% 
+                             tidytable::mutate(tot_freq = sum(freq),
+                                               lcomp = freq / tot_freq, .by = c(year, sex)) %>% 
                              tidytable::select(year, species, type, length, sex, lcomp) %>% 
                              tidytable::rename(comp_type = 'sex')) -> lcomp_marg
     
