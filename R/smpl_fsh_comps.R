@@ -4,7 +4,7 @@
 #' @param specimen_data age-length specimen data
 #' @param catch_data abundance by length data 
 #' @param r_t reader/tester ageing data 
-#' @param yrs age filter returns years >= (default = NULL)
+#' @param yrs year filter returns years >= (default = NULL)
 #' @param bin length bin size (default = 1 cm)
 #' @param join use 'haul' only, or 'both' haul and port samples for age/length (default NULL)
 #' @param exp_meth compute age/length comps as 'marginal' or 'expanded' (default NULL)
