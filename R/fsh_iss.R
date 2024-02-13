@@ -1,10 +1,10 @@
 #' replicate fishery input sample size function
 #'
 #' @param iters number of iterations (500 recommended)
-#' @param lfreq_data  input dataframe
-#' @param specimen_data input dataframe
-#' @param catch_data input dataframe
-#' @param r_t input dataframe
+#' @param lfreq_data length frequency data
+#' @param specimen_data age-length specimen data
+#' @param catch_data abundance by length data 
+#' @param r_t reader/tester ageing data 
 #' @param yrs any year filter >= (default = NULL)
 #' @param bin bin size (default = 1 cm)
 #' @param join use 'haul' only, or 'both' haul and port samples for age/length (default NULL)
