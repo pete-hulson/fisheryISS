@@ -20,7 +20,7 @@ map(here::here("R", source_files), source)
 
 # set number of desired bootstrap iterations (suggested here: 10 for testing, 500 for running)
 #iters = 500
-iters = 5
+iters = 500
 
 # for testing run time
 if(iters < 100){
