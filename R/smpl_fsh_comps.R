@@ -11,7 +11,7 @@
 #' @param boot_primes switch for resampling primary sampling unit, like hauls or trip (default = FALSE)
 #' @param boot_lengths switch for resampling lengths (default = FALSE)
 #' @param boot_ages switch for resampling ages (default = FALSE)
-#' @param al_var switch for including age-length variability (default = FALSE)
+#' @param al_var switch for including age-length variability (default = FALSE), note: only makes sense if expanding through an age-length key
 #' @param al_var_ann resample age-length annually or pooled across years
 #' @param age_err switch for including ageing error (default = FALSE)
 #'
@@ -139,15 +139,13 @@ smpl_fsh_comps <- function(lfreq_data,
   }
   
   # # add age-length variability ----
-  # if(isTRUE(al_var)) {
-  #   al_variab(.agedat_hl, annual = al_var_ann)  %>%
-  #     tidytable::mutate(type = 'al') -> .agedat_al
-  # }
+  if(isTRUE(al_var)) {
+    al_variab(.agedat, annual = al_var_ann) -> .agedat_al
+  }
 
   # add ageing error ----
   if(isTRUE(age_err)) {
-    age_error(.agedat, 
-              r_t) -> .agedat_ae
+    age_error(.agedat, r_t) -> .agedat_ae
   }
 
   # # with age-length and ageing error ----
