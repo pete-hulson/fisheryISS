@@ -20,7 +20,7 @@ map(here::here("R", source_files), source)
 
 # set number of desired bootstrap iterations (suggested here: 10 for testing, 500 for running)
 #iters = 500
-iters = 50
+iters = 10
 
 # for testing run time
 if(iters < 100){
@@ -51,33 +51,35 @@ catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
                       delim = ",",
                       col_type = c(join_key = "c", haul_join = "c"))
 
+read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>% 
+  dplyr::rename_all(tolower) %>% 
+  tidytable::select(species, species_code, region, read_age, test_age) %>% 
+  tidytable::rename(age = 'read_age')
+
+
+# for testing
+lfreq_data = lfreq
+specimen_data = specimen
+catch_data = catch
+r_t = read_test
+yrs = 2015
+bin = 1
+join = 'both'
+exp_meth = 'expanded'
+boot_primes = TRUE
+boot_lengths = TRUE
+boot_ages = TRUE
+al_var = TRUE
+al_var_ann = TRUE
+age_err = TRUE
+
 
 # for development testing
-# test marginal comps
 fsh_iss(iters = iters, 
         lfreq_data = lfreq, 
         specimen_data = specimen, 
         catch_data = catch, 
-        r_t = NULL, 
-        yrs = 2015, 
-        bin = 1, 
-        join = 'both', 
-        exp_meth = 'marginal', 
-        boot_primes = TRUE, 
-        boot_lengths = TRUE, 
-        boot_ages = TRUE, 
-        al_var = FALSE, 
-        al_var_ann = FALSE, 
-        age_err = FALSE, 
-        region = area, 
-        save = 'marg')
-
-# test expanded comps
-fsh_iss(iters = iters, 
-        lfreq_data = lfreq, 
-        specimen_data = specimen, 
-        catch_data = catch, 
-        r_t = NULL, 
+        r_t = read_test, 
         yrs = 2015, 
         bin = 1, 
         join = 'both', 
@@ -85,11 +87,12 @@ fsh_iss(iters = iters,
         boot_primes = TRUE, 
         boot_lengths = TRUE, 
         boot_ages = TRUE, 
-        al_var = FALSE, 
-        al_var_ann = FALSE, 
-        age_err = FALSE, 
+        al_var = TRUE, 
+        al_var_ann = TRUE, 
+        age_err = TRUE, 
         region = area, 
-        save = 'exp')
+        save_interm = FALSE,
+        save = 'test')
 
 # For testing run time of 500 iterations ----
 if(iters < 100){

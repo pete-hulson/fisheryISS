@@ -138,30 +138,15 @@ smpl_fsh_comps <- function(lfreq_data,
     .agedat_hl -> .agedat
   }
   
-  # # add age-length variability ----
-  if(isTRUE(al_var)) {
+  # with age-length and ageing error ----
+  if(isTRUE(al_var) & isTRUE(age_err)) {
     al_variab(.agedat, annual = al_var_ann) -> .agedat_al
+    age_error(.agedat_al, r_t) -> .agedat
+  } else if(isTRUE(al_var) & !isTRUE(age_err)){
+    al_variab(.agedat, annual = al_var_ann) -> .agedat
+  } else if(!isTRUE(al_var) & isTRUE(age_err)){
+    age_error(.agedat, r_t) -> .agedat
   }
-
-  # add ageing error ----
-  if(isTRUE(age_err)) {
-    age_error(.agedat, r_t) -> .agedat_ae
-  }
-
-  # # with age-length and ageing error ----
-  # if(isTRUE(al_var) & isTRUE(age_err)) {
-  #   age_error(.agedat_al, r_t)  %>%
-  #     tidytable::mutate(type = 'ae_al') %>%
-  #     tidytable::bind_rows(.agedat_al) %>%
-  #     tidytable::bind_rows(.agedat_ae) %>%
-  #     tidytable::bind_rows(.agedat_hlage) -> .agedat_hlage
-  # } else if(isTRUE(al_var) & !isTRUE(age_err)){
-  #   .agedat_hlage %>%
-  #     tidytable::bind_rows(.agedat_al) -> .agedat_hlage
-  # } else if(!isTRUE(al_var) & isTRUE(age_err)){
-  #   .agedat_hlage %>%
-  #     tidytable::bind_rows(.agedat_ae) -> .agedat_hlage
-  # }
   
   # bin age data ----
   .agedat %>% 
