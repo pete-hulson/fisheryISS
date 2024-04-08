@@ -101,11 +101,7 @@ smpl_fsh_comps <- function(lfreq_data,
   # bin length data ----
   .lfreq_un_hlen %>% 
     tidytable::mutate(length = bin * ceiling(length / bin)) -> .lfreq_un_hlen_bin
-  
-  .lfreq_un_hlen %>% 
-    distinct(sex)
-  
-  
+
   # length comp ----
   
   # clean data and determine if haul, or both haul and port data to be used
@@ -137,9 +133,9 @@ smpl_fsh_comps <- function(lfreq_data,
   
   # randomize age ----
   if(isTRUE(boot_ages)) {
-    boot_age(.agedat_hl) -> .agedat_hlage
+    boot_age(.agedat_hl) -> .agedat
   } else{
-    .agedat_hl -> .agedat_hlage
+    .agedat_hl -> .agedat
   }
   
   # # add age-length variability ----
@@ -147,13 +143,13 @@ smpl_fsh_comps <- function(lfreq_data,
   #   al_variab(.agedat_hl, annual = al_var_ann)  %>%
   #     tidytable::mutate(type = 'al') -> .agedat_al
   # }
-  # 
-  # # add ageing error ----
-  # if(isTRUE(age_err)) {
-  #   age_error(.agedat_hl, r_t)  %>%
-  #     tidytable::mutate(type = 'ae') -> .agedat_ae
-  # }
-  # 
+
+  # add ageing error ----
+  if(isTRUE(age_err)) {
+    age_error(.agedat, 
+              r_t) -> .agedat_ae
+  }
+
   # # with age-length and ageing error ----
   # if(isTRUE(al_var) & isTRUE(age_err)) {
   #   age_error(.agedat_al, r_t)  %>%
@@ -170,14 +166,14 @@ smpl_fsh_comps <- function(lfreq_data,
   # }
   
   # bin age data ----
-  .agedat_hlage %>% 
-    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .agedat_hlage_bin
+  .agedat %>% 
+    tidytable::mutate(length = 10 * (bin * ceiling((length / 10) / bin))) -> .agedat
   
   # age comp ----
   
   # clean data and determine if haul, or both haul and port data to be used
   if(join == 'haul'){
-    .agedat_hlage_bin %>%
+    .agedat %>%
       tidytable::filter(!is.na(length),
                         !is.na(performance)) %>% 
       tidytable::drop_na(haul_join) %>% 
@@ -186,7 +182,7 @@ smpl_fsh_comps <- function(lfreq_data,
                                                    sex == 'M' ~ 'male')) -> .agedat_samp
   }
   if(join == 'both'){
-    .agedat_hlage_bin %>%
+    .agedat %>%
       tidytable::filter(!is.na(length),
                         !is.na(performance)) %>% 
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
