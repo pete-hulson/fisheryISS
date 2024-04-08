@@ -21,8 +21,21 @@
 #' @examples
 #' 
 
-smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin, join, exp_meth,
-                       boot_primes, boot_lengths, boot_ages, al_var, al_var_ann, age_err) {
+smpl_fsh_comps <- function(lfreq_data,
+                           specimen_data,
+                           catch_data,
+                           r_t,
+                           yrs = NULL,
+                           bin = 1, 
+                           join = NULL, 
+                           exp_meth = NULL, 
+                           boot_primes = FALSE, 
+                           boot_lengths = FALSE, 
+                           boot_ages = FALSE, 
+                           al_var = FALSE, 
+                           al_var_ann = FALSE, 
+                           age_err = FALSE) {
+    
   # globals ----
   # year switch
   if (is.null(yrs)) yrs <- 0
@@ -33,7 +46,7 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
       tidytable::filter(year >= yrs) %>% 
       tidytable::mutate(prime_join = haul_join,
                         species = species_key) -> .catch
-  
+
   data.table::setDT(lfreq_data) %>%
     tidytable::filter(year >= yrs) -> lfreq1
   
@@ -65,9 +78,7 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
 
   # randomize primary sampling unit (hauls/trips) ----  
   if(isTRUE(boot_primes)) {
-    
     boot_prime(.lfreq) -> .hls_len
-    
     boot_prime(.agedat) -> .hls_age
 
     .hls_len %>% 
@@ -75,26 +86,25 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
     
     .hls_age %>% 
       tidytable::left_join(.agedat)  -> .agedat_hl
-    
   } else{
-    
     .lfreq_un_hl <- .lfreq_un
     .agedat_hl <- .agedat
-    
   }
   
   # randomize lengths ----
   if(isTRUE(boot_lengths)) {
-    boot_length(.lfreq_un_hl) %>% 
-      tidytable::mutate(type = 'base') -> .lfreq_un_hlen
+    boot_length(.lfreq_un_hl) -> .lfreq_un_hlen
   } else{
-    .lfreq_un_hl %>% 
-      tidytable::mutate(type = 'base') -> .lfreq_un_hlen
+    .lfreq_un_hl -> .lfreq_un_hlen
   }
   
   # bin length data ----
   .lfreq_un_hlen %>% 
     tidytable::mutate(length = bin * ceiling(length / bin)) -> .lfreq_un_hlen_bin
+  
+  .lfreq_un_hlen %>% 
+    distinct(sex)
+  
   
   # length comp ----
   
@@ -107,7 +117,7 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
                                                    sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, type, species, sex, length)) -> .lfreq_samp
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
   }
   if(join == 'both'){
     .lfreq_un_hlen_bin %>%
@@ -115,20 +125,21 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
                         !is.na(performance)) %>% 
       tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
                                                    sex == 'U' ~ 'unknown',
-                                                   sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, type, species, sex, length)) -> .lfreq_samp
+                                                   sex == 'M' ~ 'male',
+                                                   )) %>% 
+      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
   }
   
-
-  lcomp(lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth) -> .lcomp
-
+  # compute length comp
+  fsh_lcomp(lfreq = .lfreq_samp, 
+            catch = .catch, 
+            exp_meth = exp_meth) -> .lcomp
+  
   # randomize age ----
   if(isTRUE(boot_ages)) {
-    boot_age(.agedat_hl) %>% 
-      tidytable::mutate(type = 'base') -> .agedat_hlage
+    boot_age(.agedat_hl) -> .agedat_hlage
   } else{
-    .agedat_hl %>% 
-      tidytable::mutate(type = 'base') -> .agedat_hlage
+    .agedat_hl -> .agedat_hlage
   }
   
   # # add age-length variability ----
@@ -184,7 +195,10 @@ smpl_fsh_comps <- function(lfreq_data, specimen_data, catch_data, r_t, yrs, bin,
   }
   
   
-  acomp(agedat = .agedat_samp, lfreq = .lfreq_samp, catch = .catch, exp_meth = exp_meth) -> .acomp
+  fsh_acomp(agedat = .agedat_samp, 
+            lfreq = .lfreq_samp, 
+            catch = .catch, 
+            exp_meth = exp_meth) -> .acomp
   
 
   list(age = .acomp, length = .lcomp)

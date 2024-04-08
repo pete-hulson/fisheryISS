@@ -16,6 +16,7 @@
 #' @param al_var_ann resample age-length annually or pooled across years
 #' @param age_err include ageing error (default = FALSE)
 #' @param region region will create a folder and place results in said folder
+#' @param save_interm save the intermediate results: original comps, resampled comps (default = FALSE)
 #' @param save name to save output
 #'
 #' @return
@@ -23,18 +24,29 @@
 #'
 #' @examples
 
-fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs = NULL, bin = 1, 
-                    join, exp_meth, boot_primes = FALSE, boot_lengths = FALSE, boot_ages = FALSE, 
-                    al_var = FALSE, al_var_ann = FALSE, age_err = FALSE, region = NULL, save){
+fsh_iss <- function(iters = 1, 
+                    lfreq_data, 
+                    specimen_data, 
+                    catch_data,
+                    r_t, 
+                    yrs = NULL,
+                    bin = 1, 
+                    join = NULL, 
+                    exp_meth = NULL, 
+                    boot_primes = FALSE, 
+                    boot_lengths = FALSE, 
+                    boot_ages = FALSE, 
+                    al_var = FALSE, 
+                    al_var_ann = FALSE, 
+                    age_err = FALSE,
+                    region = NULL, 
+                    save_interm = FALSE,
+                    save){
   
   # create storage location
   region = tolower(region)
   if(!dir.exists(here::here('output', region))){
     dir.create(here::here('output', region), recursive = TRUE)
-  }
-  # create storage location
-  if(!dir.exists(here::here('output', region, 'dev')) & save != 'prod'){
-    dir.create(here::here('output', region, 'dev'), recursive = TRUE)
   }
   
   # restructure data
@@ -42,15 +54,15 @@ fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs =
   specimen_data <- tidytable::as_tidytable(specimen_data) 
   catch_data <- tidytable::as_tidytable(catch_data) 
   
-  # get original age/length pop'n values
-  og <- smpl_fsh_comps(lfreq_data, 
-                       specimen_data, 
-                       catch_data, 
-                       r_t, 
-                       yrs, 
-                       bin, 
-                       join, 
-                       exp_meth,
+  # get original age/length comps ----
+  og <- smpl_fsh_comps(lfreq_data = lfreq_data, 
+                       specimen_data = specimen_data, 
+                       catch_data = catch_data, 
+                       r_t = r_t, 
+                       yrs = yrs, 
+                       bin = bin, 
+                       join = join, 
+                       exp_meth = exp_meth,
                        boot_primes = FALSE, 
                        boot_lengths = FALSE, 
                        boot_ages = FALSE, 
@@ -58,20 +70,18 @@ fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs =
                        al_var_ann = FALSE, 
                        age_err = FALSE) 
   
-  oga <- og$age %>% 
-    select(-type)
-  ogl <- og$length %>% 
-    select(-type)
+  oga <- og$age
+  ogl <- og$length
 
-  # run resampling iterations
-  rr <- purrr::map(1:iters, ~ smpl_fsh_comps(lfreq_data, 
-                                             specimen_data, 
-                                             catch_data, 
-                                             r_t, 
-                                             yrs, 
-                                             bin, 
-                                             join, 
-                                             exp_meth,
+  # run resampling iterations ----
+  rr <- purrr::map(1:iters, ~ smpl_fsh_comps(lfreq_data = lfreq_data, 
+                                             specimen_data = specimen_data, 
+                                             catch_data = catch_data, 
+                                             r_t = r_t, 
+                                             yrs = yrs, 
+                                             bin = bin, 
+                                             join = join, 
+                                             exp_meth = exp_meth,
                                              boot_primes = boot_primes, 
                                              boot_lengths = boot_lengths, 
                                              boot_ages = boot_ages,
@@ -82,43 +92,58 @@ fsh_iss <- function(iters = 1, lfreq_data, specimen_data, catch_data, r_t, yrs =
   r_age <- do.call(mapply, c(list, rr, SIMPLIFY = FALSE))$age
   r_length <- do.call(mapply, c(list, rr, SIMPLIFY = FALSE))$length
   
-  # compute effective sample size of bootstrapped age/length
+  # compute statistics ----
+  # compute realized sample size of bootstrapped age/length
   r_age %>%
-    tidytable::map(., ~ess_age(sim_data = .x, og_data = oga)) %>%
-    tidytable::map_df(., ~as.data.frame(.x), .id = "sim") -> .ess_age
+    tidytable::map(., ~rss_age(sim_data = .x, og_data = oga)) %>%
+    tidytable::map_df(., ~as.data.frame(.x), .id = "sim") -> .rss_age
   r_length %>%
-    tidytable::map(., ~ess_size(sim_data = .x, og_data = ogl)) %>%
-    tidytable::map_df(., ~as.data.frame(.x), .id = "sim") -> .ess_size
+    tidytable::map(., ~rss_length(sim_data = .x, og_data = ogl)) %>%
+    tidytable::map_df(., ~as.data.frame(.x), .id = "sim") -> .rss_length
 
-  # compute harmonic mean of iterated effective sample size, which is the input sample size (iss)
-  .ess_age %>% 
-    tidytable::summarise(iss = psych::harmonic.mean(ess, na.rm=T),
-                         .by = c(year, species, comp_type, type)) %>% 
-    tidytable::filter(iss > 0) %>% 
-    tidytable::pivot_wider(names_from = type, values_from = iss) -> iss_age
+  # compute harmonic mean of iterated realized sample size, which is the input sample size (iss)
+  #   and compute average relative bias in pop'n estimates (avg relative bias across age or length)
+  .rss_age %>% 
+    tidytable::summarise(iss = psych::harmonic.mean(rss, na.rm = TRUE),
+                         .by = c(year, species, comp_type)) %>% 
+    tidytable::left_join(r_age %>%
+                           tidytable::map_df(., ~as.data.frame(.x), .id = "sim") %>% 
+                           tidytable::left_join(oga %>% 
+                                                  tidytable::rename(og_acomp = 'acomp')) %>% 
+                           tidytable::mutate(bias = (acomp - og_acomp)) %>% 
+                           tidytable::drop_na() %>% 
+                           tidytable::summarise(bias = mean(bias), .by = c(year, species, comp_type))) %>% 
+    tidytable::filter(iss > 0) -> iss_age
   
-  .ess_age %>%
-    tidytable::pivot_wider(names_from = type, values_from = ess) -> .ess_age1
-  
-  .ess_size %>% 
-    tidytable::summarise(iss = psych::harmonic.mean(ess, na.rm=T),
-                         .by = c(year, species, comp_type, type)) %>% 
-    tidytable::filter(iss > 0) %>% 
-    tidytable::pivot_wider(names_from = type, values_from = iss) -> iss_size
-  
-  .ess_size %>%
-    tidytable::pivot_wider(names_from = type, values_from = ess) -> .ess_size1
-  
-  # write input sample size results
-  if(save == 'prod'){
-    vroom::vroom_write(.ess_size1, here::here("output", region, paste0(save, "_iter_ess_sz.csv")), delim = ",")
-    vroom::vroom_write(.ess_age1, here::here("output", region, paste0(save, "_iter_ess_ag.csv")), delim = ",")
-    vroom::vroom_write(iss_size, here::here("output", region, paste0(save, "_iss_sz.csv")), delim = ",")    
-    vroom::vroom_write(iss_age, here::here("output", region, paste0(save, "_iss_ag.csv")), delim = ",")
-  } else if(save != 'prod'){
-    vroom::vroom_write(.ess_size1, here::here("output", region, 'dev', paste0(save, "_iter_ess_sz.csv")), delim = ",")
-    vroom::vroom_write(.ess_age1, here::here("output", region, 'dev', paste0(save, "_iter_ess_ag.csv")), delim = ",")
-    vroom::vroom_write(iss_size, here::here("output", region, 'dev', paste0(save, "_iss_sz.csv")), delim = ",")    
-    vroom::vroom_write(iss_age, here::here("output", region, 'dev', paste0(save, "_iss_ag.csv")), delim = ",")
+  .rss_length %>% 
+    tidytable::summarise(iss = psych::harmonic.mean(rss, na.rm = TRUE),
+                         .by = c(year, species, comp_type)) %>% 
+    tidytable::left_join(r_length %>%
+                           tidytable::map_df(., ~as.data.frame(.x), .id = "sim") %>% 
+                           tidytable::left_join(ogl %>% 
+                                                  tidytable::rename(og_lcomp = 'lcomp')) %>% 
+                           tidytable::mutate(bias = (lcomp - og_lcomp)) %>% 
+                           tidytable::drop_na() %>% 
+                           tidytable::summarise(bias = mean(bias), .by = c(year, species, comp_type))) %>% 
+    tidytable::filter(iss > 0) -> iss_length
+
+  # write results ----
+  # input sample size
+  vroom::vroom_write(iss_length, here::here("output", region, paste0(save, "_iss_ln.csv")), delim = ",")    
+  vroom::vroom_write(iss_age, here::here("output", region, paste0(save, "_iss_ag.csv")), delim = ",")
+  # base age & length comp
+  vroom::vroom_write(oga, file = here::here("output", region, paste0(save, "_base_acomp.csv")), delim = ",")
+  vroom::vroom_write(ogl, file = here::here("output", region, paste0(save, "_base_lcomp.csv")), delim = ",")
+  # if desired, write out bootstrapped age & length comps and realized sample sizes
+  if(isTRUE(save_interm)) {
+    r_length %>%
+      tidytable::map_df(., ~as.data.frame(.x), .id = "sim") %>% 
+      vroom::vroom_write(here::here("output", region, "resampled_length.csv"), delim = ",")
+    r_age %>%
+      tidytable::map_df(., ~as.data.frame(.x), .id = "sim") %>% 
+      vroom::vroom_write(here::here("output", region, "resampled_age.csv"), delim = ",")
+    vroom::vroom_write(.rss_length, here::here("output", region, paste0(save, "_iter_rss_ln.csv")), delim = ",")
+    vroom::vroom_write(.rss_age, here::here("output", region, paste0(save, "_iter_rss_ag.csv")), delim = ",")
   }
+
 }
