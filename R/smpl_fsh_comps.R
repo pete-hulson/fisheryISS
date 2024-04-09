@@ -35,52 +35,88 @@ smpl_fsh_comps <- function(lfreq_data,
                            al_var = FALSE, 
                            al_var_ann = FALSE, 
                            age_err = FALSE) {
-    
+  
   # globals ----
   # year switch
   if (is.null(yrs)) yrs <- 0
   
   # prep data ----
   # first pass of filtering and combine port/haul joins to single join value ('prime_join')
+  
+  # catch data
   data.table::setDT(catch_data) %>%
       tidytable::filter(year >= yrs) %>% 
       tidytable::mutate(prime_join = haul_join,
                         species = species_key) -> .catch
-
+  
+  # length frequency data
   data.table::setDT(lfreq_data) %>%
     tidytable::filter(year >= yrs) -> lfreq1
   
-  lfreq1 %>% 
-    tidytable::bind_cols(lfreq1 %>% 
-                           tidytable::select(haul_join) %>% 
-                           tidytable::drop_na() %>% 
-                           tidytable::rename(prime_join = 'haul_join') %>% 
-                           tidytable::bind_rows(lfreq1 %>% 
-                                                  tidytable::select(port_join) %>% 
-                                                  tidytable::drop_na() %>% 
-                                                  tidytable::rename(prime_join = 'port_join'))) -> .lfreq
+  if(join == 'both'){
+    lfreq1 %>% 
+      tidytable::bind_cols(lfreq1 %>% 
+                             tidytable::select(haul_join) %>% 
+                             tidytable::drop_na() %>% 
+                             tidytable::rename(prime_join = 'haul_join') %>% 
+                             tidytable::bind_rows(lfreq1 %>% 
+                                                    tidytable::select(port_join) %>% 
+                                                    tidytable::drop_na() %>% 
+                                                    tidytable::rename(prime_join = 'port_join'))) %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::select(-haul_join, -port_join) -> .lfreq
+  }
+  if(join == 'haul'){
+    lfreq1 %>%
+      tidytable::bind_cols(lfreq1 %>% 
+                             tidytable::select(haul_join) %>% 
+                             tidytable::drop_na() %>% 
+                             tidytable::rename(prime_join = 'haul_join')) %>%
+      tidytable::filter(!is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::select(-haul_join) -> .lfreq
+  }
   
   .lfreq %>% 
     tidytable::uncount(frequency) -> .lfreq_un
   
+  # specimen data
   data.table::setDT(specimen_data) %>%
     tidytable::filter(year >= yrs) -> agedat1
   
-  agedat1 %>% 
-    tidytable::bind_cols(agedat1 %>% 
-                           tidytable::select(haul_join) %>% 
-                           tidytable::drop_na() %>% 
-                           tidytable::rename(prime_join = 'haul_join') %>% 
-                           tidytable::bind_rows(agedat1 %>% 
-                                                  tidytable::select(port_join) %>% 
-                                                  tidytable::drop_na() %>% 
-                                                  tidytable::rename(prime_join = 'port_join')))  -> .agedat
-
+  if(join == 'both'){
+    agedat1 %>% 
+      tidytable::bind_cols(agedat1 %>% 
+                             tidytable::select(haul_join) %>% 
+                             tidytable::drop_na() %>% 
+                             tidytable::rename(prime_join = 'haul_join') %>% 
+                             tidytable::bind_rows(agedat1 %>% 
+                                                    tidytable::select(port_join) %>% 
+                                                    tidytable::drop_na() %>% 
+                                                    tidytable::rename(prime_join = 'port_join'))) %>%
+      tidytable::filter(!is.na(age),
+                        !is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::select(-haul_join, -port_join)  -> .agedat
+  }
+  if(join == 'haul'){
+    agedat1 %>%
+      tidytable::bind_cols(agedat1 %>% 
+                             tidytable::select(haul_join) %>% 
+                             tidytable::drop_na() %>% 
+                             tidytable::rename(prime_join = 'haul_join')) %>%
+      tidytable::filter(!is.na(age),
+                        !is.na(length),
+                        !is.na(performance)) %>% 
+      tidytable::select(-haul_join) -> .agedat
+  }
+  
   # randomize primary sampling unit (hauls/trips) ----  
   if(isTRUE(boot_primes)) {
     boot_prime(.lfreq) -> .hls_len
     boot_prime(.agedat) -> .hls_age
-
+    
     .hls_len %>% 
       tidytable::left_join(.lfreq_un) -> .lfreq_un_hl
     
@@ -101,30 +137,15 @@ smpl_fsh_comps <- function(lfreq_data,
   # bin length data ----
   .lfreq_un_hlen %>% 
     tidytable::mutate(length = bin * ceiling(length / bin)) -> .lfreq_un_hlen_bin
-
+  
   # length comp ----
   
-  # clean data and determine if haul, or both haul and port data to be used
-  if(join == 'haul'){
-    .lfreq_un_hlen_bin %>%
-      tidytable::filter(!is.na(length),
-                        !is.na(performance)) %>% 
-      tidytable::drop_na(haul_join) %>% 
-      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
-                                                   sex == 'U' ~ 'unknown',
-                                                   sex == 'M' ~ 'male')) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
-  }
-  if(join == 'both'){
-    .lfreq_un_hlen_bin %>%
-      tidytable::filter(!is.na(length),
-                        !is.na(performance)) %>% 
-      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
-                                                   sex == 'U' ~ 'unknown',
-                                                   sex == 'M' ~ 'male',
-                                                   )) %>% 
-      tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
-  }
+  # convert from uncounted to frequency data and rename sex category descriptions
+  .lfreq_un_hlen_bin %>%
+    tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                 sex == 'U' ~ 'unknown',
+                                                 sex == 'M' ~ 'male')) %>% 
+    tidytable::summarise(frequency = tidytable::n(), .by = c(year, prime_join, species, sex, length)) -> .lfreq_samp
   
   # compute length comp
   fsh_lcomp(lfreq = .lfreq_samp, 
@@ -154,32 +175,18 @@ smpl_fsh_comps <- function(lfreq_data,
   
   # age comp ----
   
-  # clean data and determine if haul, or both haul and port data to be used
-  if(join == 'haul'){
-    .agedat %>%
-      tidytable::filter(!is.na(length),
-                        !is.na(performance)) %>% 
-      tidytable::drop_na(haul_join) %>% 
-      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
-                                                   sex == 'U' ~ 'unknown',
-                                                   sex == 'M' ~ 'male')) -> .agedat_samp
-  }
-  if(join == 'both'){
-    .agedat %>%
-      tidytable::filter(!is.na(length),
-                        !is.na(performance)) %>% 
-      tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
-                                                   sex == 'U' ~ 'unknown',
-                                                   sex == 'M' ~ 'male')) -> .agedat_samp
-  }
-  
+  # rename sex category descriptions
+  .agedat %>%
+    tidytable::mutate(sex = tidytable::case_when(sex == 'F' ~ 'female',
+                                                 sex == 'U' ~ 'unknown',
+                                                 sex == 'M' ~ 'male')) -> .agedat_samp
   
   fsh_acomp(agedat = .agedat_samp, 
             lfreq = .lfreq_samp, 
             catch = .catch, 
             exp_meth = exp_meth) -> .acomp
   
-
+  
   list(age = .acomp, length = .lcomp)
   
 }

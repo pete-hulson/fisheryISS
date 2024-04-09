@@ -27,9 +27,7 @@ if(iters < 100){
   st <- Sys.time()
 }
 
-# run for gulf of alaska pacific ocean perch ----
-
-# pull data
+# pull data ----
 query = FALSE
 species = 301
 year = 2023
@@ -56,6 +54,8 @@ read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>%
   tidytable::select(species, species_code, region, read_age, test_age) %>% 
   tidytable::rename(age = 'read_age')
 
+# set sim parameters
+yrs = 2015 # >= year filter
 
 # for testing
 # lfreq_data = lfreq
@@ -64,7 +64,7 @@ read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>%
 # r_t = read_test
 # yrs = 2015
 # bin = 1
-# join = 'both'
+# join = 'haul'
 # exp_meth = 'expanded'
 # boot_primes = TRUE
 # boot_lengths = TRUE
@@ -74,15 +74,15 @@ read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>%
 # age_err = TRUE
 
 
-# for development testing
+# run at haul level ----
 fsh_iss(iters = iters, 
         lfreq_data = lfreq, 
         specimen_data = specimen, 
         catch_data = catch, 
         r_t = read_test, 
-        yrs = 2015, 
+        yrs = yrs, 
         bin = 1, 
-        join = 'both', 
+        join = 'haul', 
         exp_meth = 'expanded', 
         boot_primes = TRUE, 
         boot_lengths = TRUE, 
@@ -92,7 +92,51 @@ fsh_iss(iters = iters,
         age_err = TRUE, 
         region = area, 
         save_interm = FALSE,
-        save = 'test')
+        save = 'haul')
+
+
+# run at trip level ----
+
+# run function to convert haul to trip level
+trip_data <- haul_to_trip(catch, 
+                          specimen, 
+                          lfreq,
+                          yrs) 
+
+# get catch data reorg
+catch_t <- trip_data$pete_c %>% 
+  tidytable::rename(haul_join = 'trip_join',
+                    extrapolated_number = 'ext_num',
+                    species_key = 'species') %>% 
+  tidytable::select(-num_hls, -cruise, -permit)
+
+# get specimen data reorg
+specimen_t <- trip_data$pete_s %>% 
+  tidytable::rename(haul_join = 'trip_join')
+
+# get length freq data reorg
+lfreq_t <- trip_data$pete_l %>% 
+  tidytable::rename(haul_join = 'trip_join')
+
+# run bootstraps
+fsh_iss(iters = iters, 
+        lfreq_data = lfreq_t, 
+        specimen_data = specimen_t, 
+        catch_data = catch_t, 
+        r_t = read_test, 
+        yrs = yrs, 
+        bin = 1, 
+        join = 'haul', 
+        exp_meth = 'expanded', 
+        boot_primes = TRUE, 
+        boot_lengths = TRUE, 
+        boot_ages = TRUE, 
+        al_var = TRUE, 
+        al_var_ann = TRUE, 
+        age_err = TRUE, 
+        region = area, 
+        save_interm = FALSE,
+        save = 'trip')
 
 # For testing run time of 500 iterations ----
 if(iters < 100){
