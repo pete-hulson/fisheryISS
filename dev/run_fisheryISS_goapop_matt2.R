@@ -18,28 +18,9 @@ library(afscdata)
 source_files <- list.files(here::here("R"), "*.R$")
 map(here::here("R", source_files), source)
 
-
-akfin = connect()
-
-db_specs <- vroom::vroom(here::here("database_specs.csv"))
-akfin_user = db_specs$username[db_specs$database == "AKFIN"]
-akfin_pass = db_specs$password[db_specs$database == "AKFIN"]
-
-conn = DBI::dbConnect(odbc::odbc(),
-                      'akfin',
-                      UID = akfin_user,
-                      PWD = akfin_pass)
-
-
-afscdata::q_catch(year = 2023,
-                  species = "POP",
-                  area = "GOA",
-                  db = "akfin",
-                  add_fields = c("deployment_trip_start_date", "deployment_trip_end_date"))
-
 # set number of desired bootstrap iterations (suggested here: 10 for testing, 500 for running)
-iters = 500
-# iters = 10
+# iters = 500
+iters = 10
 
 # for testing run time
 if(iters < 100){
@@ -47,14 +28,22 @@ if(iters < 100){
 }
 
 # pull data ----
-query = FALSE
-species = 301
+query = TRUE
+species_code = "301"
+species_group = "POPA"
 year = 2023
 area = "GOA"
 
 if(isTRUE(query)){
-  query_data(species, year, area)
+  query_data_all(year, 
+                 species_code, 
+                 species_group,
+                 area)
 }
+
+
+catch <- vroom::vroom(here::here("data", "fsh_catch_data.txt"),
+                         delim = ",")
 
 specimen <- vroom::vroom(here::here("data", "fsh_specimen_data.txt"),
                          delim = ",",
@@ -64,9 +53,9 @@ lfreq <- vroom::vroom(here::here("data", "fsh_length_data.txt"),
                       delim = ",",
                       col_type = c(haul_join="c", port_join="c"))
 
-catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
-                      delim = ",",
-                      col_type = c(join_key = "c", haul_join = "c"))
+obs_catch <- vroom::vroom(here::here("data", "fsh_obs_data.txt"),
+                          delim = ",",
+                          col_type = c(join_key = "c", haul_join = "c"))
 
 read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>% 
   dplyr::rename_all(tolower) %>% 
