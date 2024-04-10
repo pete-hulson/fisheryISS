@@ -18,9 +18,28 @@ library(afscdata)
 source_files <- list.files(here::here("R"), "*.R$")
 map(here::here("R", source_files), source)
 
+
+akfin = connect()
+
+db_specs <- vroom::vroom(here::here("database_specs.csv"))
+akfin_user = db_specs$username[db_specs$database == "AKFIN"]
+akfin_pass = db_specs$password[db_specs$database == "AKFIN"]
+
+conn = DBI::dbConnect(odbc::odbc(),
+                      'akfin',
+                      UID = akfin_user,
+                      PWD = akfin_pass)
+
+
+afscdata::q_catch(year = 2023,
+                  species = "POP",
+                  area = "GOA",
+                  db = "akfin",
+                  add_fields = c("deployment_trip_start_date", "deployment_trip_end_date"))
+
 # set number of desired bootstrap iterations (suggested here: 10 for testing, 500 for running)
-#iters = 500
-iters = 10
+iters = 500
+# iters = 10
 
 # for testing run time
 if(iters < 100){

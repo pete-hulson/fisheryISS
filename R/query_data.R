@@ -31,7 +31,51 @@ query_data <- function(species, year = NULL, area) {
   yr = year
   sp = species
   
-  # get catch data ----
+  # get landings data
+  
+  cols = c("year",                             
+           "agency_species_code",              
+           "species_group_name",               
+           "species_name",          
+           "species_group_code",               
+           "retained_or_discarded",            
+           "trip_target_code",                 
+           "trip_target_name",               
+           "cdq_flag",                  
+           "fmp_gear",                 
+           "agency_gear_code",                   
+           "fmp_area",                           
+           "fmp_subarea",                        
+           "reporting_area_code",   
+           "week_end_date",                      
+           "weight_posted",              
+           "vessel_id",                          
+           "ves_akr_length",                     
+           "sampling_strata",                    
+           "sampling_strata_name",               
+           "sampling_strata_deployment_category",
+           "sampling_strata_selection_rate",     
+           "deployment_trip_pk",                 
+           "deployment_trip_start_date",         
+           "deployment_trip_end_date",           
+           "adfg_stat_area_code",                
+           "akr_state_federal_waters_code",
+           "deployment_trip_start_date",
+           "deployment_trip_end_date")
+  
+  
+  table <- dplyr::tbl(akfin, dplyr::sql("council.comprehensive_blend_ca")) %>% 
+    dplyr::rename_with(tolower) %>% 
+    dplyr::select(!!!cols) %>% 
+    dplyr::filter(year <= yr,
+                  agency_species_code %in% sp,
+                  fmp_subarea %in% area)
+  
+  dplyr::collect(table) %>% 
+    vroom::vroom_write(here::here("data", "fsh_catch_data.txt"), 
+                       delim = ",")
+  
+  # get observer haul catch data ----
   table <- dplyr::tbl(akfin, dplyr::sql("norpac.debriefed_spcomp_mv")) %>% 
     dplyr::rename_with(tolower) %>% 
     dplyr::mutate(dplyr::across(c(join_key, haul_join), as.character)) %>%
