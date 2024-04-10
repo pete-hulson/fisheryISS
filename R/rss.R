@@ -16,7 +16,7 @@ rss_age <- function(sim_data,
                            tidytable::rename(og_acomp = 'acomp')) %>% 
     tidytable::replace_na(list(acomp = 0)) %>% 
     tidytable::replace_na(list(og_acomp = 0)) %>%
-    tidytable::summarise(rss = sum(og_acomp * (1 - og_acomp)) / sum((acomp - og_acomp)^2),
+    tidytable::summarise(rss = sum(acomp * (1 - acomp)) / sum((acomp - og_acomp)^2),
                          .by = c(year, species, comp_type)) %>% 
     tidytable::drop_na()
   
@@ -40,7 +40,7 @@ rss_length <- function(sim_data,
                            tidytable::rename(og_lcomp = 'lcomp')) %>% 
     tidytable::replace_na(list(lcomp = 0)) %>% 
     tidytable::replace_na(list(og_lcomp = 0)) %>% 
-    tidytable::summarise(rss = sum(og_lcomp * (1 - og_lcomp)) / sum((lcomp - og_lcomp)^2),
+    tidytable::summarise(rss = sum(lcomp * (1 - lcomp)) / sum((lcomp - og_lcomp)^2),
                          .by = c(year, species, comp_type)) %>% 
     tidytable::drop_na()
   
