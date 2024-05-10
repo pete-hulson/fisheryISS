@@ -1,0 +1,14 @@
+---
+title: "Tidy Table Practice"
+author: "Brett Stacy"
+date: "2024-05-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Practice Tidytable Commands
+
+This .Rmd is simply a place where I can practice and take notes on tidytable commands as I see fit. I hope to document commands from swo and surveyISS as I learn them. 
