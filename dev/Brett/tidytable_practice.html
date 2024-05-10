@@ -362,6 +362,47 @@ display: none;
 <p>This .Rmd is simply a place where I can practice and take notes on
 tidytable commands as I see fit. I hope to document commands from swo
 and surveyISS as I learn them.</p>
+<pre class="r"><code>library(tidytable)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;tidytable&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     dt, filter, lag</code></pre>
+<pre><code>## The following object is masked from &#39;package:base&#39;:
+## 
+##     %in%</code></pre>
+<div id="simple-examples-from-the-package-readme" class="section level2">
+<h2>Simple examples from the package readme</h2>
+<pre class="r"><code>df &lt;- data.table(x = 1:3, y = 4:6, z = c(&quot;a&quot;, &quot;a&quot;, &quot;b&quot;)) # you have to start with a data.table before you can perform tidytable commands on it
+
+df %&gt;% select(x, y) # selects the specified variables</code></pre>
+<pre><code>## # A tidytable: 3 × 2
+##       x     y
+##   &lt;int&gt; &lt;int&gt;
+## 1     1     4
+## 2     2     5
+## 3     3     6</code></pre>
+<pre class="r"><code>df %&gt;% filter(x &lt;= 2) # only keeps the variable entries where the condition is met</code></pre>
+<pre><code>## # A tidytable: 2 × 3
+##       x     y z    
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;
+## 1     1     4 a    
+## 2     2     5 a</code></pre>
+<pre class="r"><code>df %&gt;% filter(x &lt; 2, y &lt; 5) # for multiple conditions</code></pre>
+<pre><code>## # A tidytable: 1 × 3
+##       x     y z    
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;
+## 1     1     4 a</code></pre>
+<pre class="r"><code>df %&gt;% mutate(inv_x = 1/x) -&gt; df # add another variable as a function of an existing one and redefine df with it
+
+df %&gt;% arrange(inv_x) # rearrange df by ordering everything according to inv_x from small to big</code></pre>
+<pre><code>## # A tidytable: 3 × 4
+##       x     y z     inv_x
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt; &lt;dbl&gt;
+## 1     3     6 b     0.333
+## 2     2     5 a     0.5  
+## 3     1     4 a     1</code></pre>
+</div>
 </div>
 
 
