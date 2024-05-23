@@ -3,6 +3,7 @@
 
 
 # Questions
+  # Is vessel and permit the same thing?
   # which weights should theoretically add up to 1? should there be any? the annual weights for the total length observations don't add to 1, they add to 1.9. I'm pretty sure these should add up to 1.
 
 
@@ -66,6 +67,8 @@ Dspcomp$QUARTER<-trunc((as.numeric(Dspcomp$MONTH)/3)-0.3)+1 # add QUARTER that g
 
 Tspcomp<-data.table(Dspcomp) # line 75. Edited this line to not include the foreign length data rbind
 
+# To jive with catch data later ####
+# The MONTH_WED column comes with the catch data download but not the observer data download so this section of code creates the column for obs data to later match and merge with the catch data
 source("C:/Users/bstacy2/OneDrive - UW/UW Postdoc/GitHub Repos/EBS_PCOD/2023_ASSESSMENT/Functions/R/utils.r") # needed for below line
 # Tspcomp$WED<-WED(Tspcomp$HDAY) # line 76
 # begin testing #
@@ -91,6 +94,8 @@ WED <- function(x) {
 Tspcomp$WED<-WED(Tspcomp$HDAY) # apply the WED function to add a new column to Tspcomp that contains the next_saturday date
 Tspcomp$MONTH_WED<-month(Tspcomp$WED) # the month WED is in
 Tspcomp$MONTH<-as.numeric(Tspcomp$MONTH) # change the existing MONTH column to be numeric instead of character
+# END To jive with catch data later ####
+
 
 Tspcomp<-Tspcomp[EXTRAPOLATED_WEIGHT>0] # only keep observations associated with greater than zero extrapolated weight. There were no entries discarded
 Tspcomp<-Tspcomp[NUMB>0] # don't know what NUMB is, but there were no entries discarded here either. These lines of code repeat the initial commands after the data was imported. They are repeated here because it is assumed the additional data from foreign sources was added. 
@@ -100,13 +105,13 @@ Tspcomp[is.na(VES_AKR_ADFG)]$VES_AKR_ADFG<- as.numeric(as.factor(Tspcomp[is.na(V
 Tspcomp[is.na(PERMIT)]$PERMIT<- Tspcomp[is.na(PERMIT)]$VES_AKR_ADFG # Similarly, replace where PERMIT is na with VES_AKR_ADFG. The result is that these vairables will only have NA's where they both share NA's
 
 Tspcomp$AREA2<-trunc(Tspcomp$AREA/10)*10 # creates a coluimn AREA2 that consolidates AREA into three Areas 500, 510, 520
-Tspcomp[AREA2==500]$AREA2<-510 # For some reason, rename AREA2==500 510?
+Tspcomp[AREA2==500]$AREA2<-510 # For some reason, rename AREA2==500 510 so now there are only two areas
 
 OBS_DATA<-Tspcomp[,c("SPECIES","YEAR","GEAR","AREA2","AREA","MONTH","QUARTER","CRUISE","VES_AKR_ADFG","HAUL_JOIN","SEX","LENGTH","SUM_FREQUENCY","EXTRAPOLATED_WEIGHT","NUMB","SOURCE")] # this is called in the port data section to join it together if PORT=T. It equals false in our case
 
 ## Calculate average weights to calculate number of fish in landings data, which are only in weight
 
-YAGM_AVWT=data.table(Tspcomp)[,list(YAGM_AVE_WT=sum(EXTRAPOLATED_WEIGHT)/sum(NUMB)),by=c('YEAR','AREA2','MONTH','GEAR')] #YAGM - year area gear month. These are all the average weights of a P.cod according to the specified variables
+YAGM_AVWT=data.table(Tspcomp)[,list(YAGM_AVE_WT=sum(EXTRAPOLATED_WEIGHT)/sum(NUMB)),by=c('YEAR','AREA2','MONTH','GEAR')] #YAGM - year area gear month. These are all the average weights of a P.cod according to the specified strata based on the observer data: extrapolated_weight/extrapolated_number. NUMB is extrapolated number based on the .sql file renaming.
 YAGM_AVWT$YEAR<-as.numeric(YAGM_AVWT$YEAR)
 YAM_AVWT=data.table(Tspcomp)[,list(YAM_AVE_WT=sum(EXTRAPOLATED_WEIGHT)/sum(NUMB)),by=c('YEAR','AREA2','MONTH')]
 YAM_AVWT$YEAR<-as.numeric(YAM_AVWT$YEAR)
@@ -127,7 +132,7 @@ YAQ_AVWT$QUARTER<-as.numeric(YAQ_AVWT$QUARTER)
 
 
 # Catch ####
-# this section uses the catch in tons from a different source than the observer estimated catch above (extrapolated_weight). The extrapolated weight above is available at a haul level because it was estimated by the observer. The below weight I think is more accurate than adding up all the estimated weights from above but it is at a much coarser resolution.
+# this section uses the catch in tons from a different source than the observer estimated catch above (extrapolated_weight). The extrapolated weight above is available at a haul level because it was estimated by the observer. The catch weight needs to be converted to numbers using the observer average weights. The problem is, not all catch weights had associated observer estimated numbers, therefore imputing needs to happen.
 
 
 ## pull blend information on domestic catch
@@ -157,33 +162,34 @@ CATCHT$YEAR<-as.numeric(CATCHT$YEAR)
 ## use average weights to calculate number of fish caught
 
 CATCHT2<-data.table(CATCHT) 
-CATCHT2<-merge(CATCHT2,YAGM_AVWT,all.x=T,by=c('YEAR','AREA2','MONTH','GEAR'))  ## first is year, area, gear, month
+CATCHT2<-merge(CATCHT2,YAGM_AVWT,all.x=T,by=c('YEAR','AREA2','MONTH','GEAR'))  ## first is year, area, gear, month. # merging with all.x=t means that the AREA variable will remain in there. 
 CATCHT2<-merge(CATCHT2,YGM_AVWT,all.x=T,by=c('YEAR','GEAR','MONTH'))          ## second choice is year, gear, month
 CATCHT2<-merge(CATCHT2,YGQ_AVWT,all.x=T,by=c('YEAR','GEAR','QUARTER'))        ## third choice is year, gear, quarter
 CATCHT2<-merge(CATCHT2,YAM_AVWT,all.x=T,by=c('YEAR','AREA2','MONTH'))          ## fourth choice by year, area, month
 CATCHT2<-merge(CATCHT2,YG_AVWT,all.x=T,by=c('YEAR','GEAR'))                   ## fill in any more missing by year and gear
-CATCHT2$AVEWT<-CATCHT2$YAGM_AVE_WT # copy YAGM to a new variable AVEWT, remember this is the observer based average weights
-CATCHT2[is.na(AVEWT)]$AVEWT<-CATCHT2[is.na(AVEWT)]$YGM_AVE_WT # *Imputing steps! Where AVEWT (YAGM) is NA, fill it in with the values for YGM. In other words, if there is no data for an AREA2 for a particular year, gear, month, fill it in with the average from the year, gear, month (averaged over areas). 
+CATCHT2$AVEWT<-CATCHT2$YAGM_AVE_WT # copy YAGM to a new variable AVEWT, remember this is the observer based average weights. AVEWT will be the imputed average wieghts to the YAGM level based on average weights on higher levels if neccessary.
+CATCHT2[is.na(AVEWT)]$AVEWT<-CATCHT2[is.na(AVEWT)]$YGM_AVE_WT # *Imputing steps! Where AVEWT (YAGM) is NA, fill it in with the values for YGM. In other words, if there is no observer-based average weight data for an AREA2 for a particular year, gear, month, fill it in with the average from the year, gear, month (averaged over areas). 
 CATCHT2[is.na(AVEWT)]$AVEWT<-CATCHT2[is.na(AVEWT)]$YGQ_AVE_WT # If there are still NAs (i.e., for particular months), fill them in with data averaged over months to the quarter year resolution.
 CATCHT2[is.na(AVEWT)]$AVEWT<-CATCHT2[is.na(AVEWT)]$YAM_AVE_WT # If there are still NAs (i.e., for particular gears), fill them in with data averaged over gears.
 CATCHT2[is.na(AVEWT)]$AVEWT<-CATCHT2[is.na(AVEWT)]$YG_AVE_WT # If there are still NAs (i.e., for particular months), fill them in with data averaged over all the months. 
 
-CATCHT3<-data.table(data.frame(CATCHT2)[,names(CATCHT)]) # new object CATCHT3 only keep the names from catcht. 
+CATCHT3<-data.table(data.frame(CATCHT2)[,names(CATCHT)]) # new object CATCHT3 only keep the names from catcht, not catcht2. 
 CATCHT3$NUMBER<-CATCHT3$TONS/(CATCHT2$AVEWT/1000)        ## estimate the number of fish caught using average weights # new variable NUMBER calculated by dividing the weight from the catch download by the average weight per fish by the observer data. 
 CATCHT3$SPECIES=species
 CATCHT3$SPECIES=as.numeric(CATCHT3$SPECIES)
 CATCHT3<-CATCHT3[!is.na(NUMBER)] # did not exclude any data
 
-CATCHT4<-CATCHT3[,list(YAGM_TONS=sum(TONS),YAGM_TNUM=sum(NUMBER)),by=c("SPECIES","YEAR","GEAR","AREA2","MONTH")] # new variables YAGM_TONS and YAGM_TNUM. They are summed tons and number of fish over YAGM
+CATCHT4<-CATCHT3[,list(YAGM_TONS=sum(TONS),YAGM_TNUM=sum(NUMBER)),by=c("SPECIES","YEAR","GEAR","AREA2","MONTH")] # new variables YAGM_TONS and YAGM_TNUM. They are summed tons and number of fish over YAGM. This sums over AREA and only outputs AREA2. That's why it is a shorter data.table than catch3
 
 xt_YAG<-CATCHT4[,list(YAG_TONS=sum(YAGM_TONS),YAG_TNUM=sum(YAGM_TNUM)),by=c("AREA2","GEAR","YEAR")] # Similar process to above where things are merged
-CATCHT4<-merge(CATCHT4,xt_YAG,by=c("YEAR","AREA2","GEAR"), all.x=T)
+CATCHT4<-merge(CATCHT4,xt_YAG,by=c("YEAR","AREA2","GEAR"), all.x=T) # merging with all.x=T preserves all rows.
 xt_YG<-CATCHT4[,list(YG_TONS=sum(YAGM_TONS),YG_TNUM=sum(YAGM_TNUM)),by=c("GEAR","YEAR")]
 CATCHT4<-merge(CATCHT4,xt_YG,by=c("YEAR","GEAR"), all.x=T)
 xt_Y<-CATCHT4[,list(Y_TONS=sum(YAGM_TONS),Y_TNUM=sum(YAGM_TNUM)),by=c("YEAR")] # this gives the total weight and number of fish caught per year.
 CATCHT4<-merge(CATCHT4,xt_Y,by=c("YEAR"), all.x=T)
 
 
+# OBSERVER DATA
 # condense a Length data.table from the observer data that is a bit more organized to be used later
 ALL_DATA <- OBS_DATA # pulled from line 319, which is part of the PORT conditional code (not run in this example)
 Length<-ALL_DATA[GEAR%in%c("POT","TRW","HAL")] # just keep the relevant gear types
@@ -198,29 +204,45 @@ Length$YAGMH_SNUM<-Length$NUMB # number of fish in the haul. this is just a rena
 # Expansion ####
 
 
-
-# if(!SEX){
+# SANS-SEX: so this conditional section sums over sex in the first line.
+# if(!SEX){}
+  # The below sums add up the frequency of lengths observed at each strata level that matches the strata levels in CATCHT4 above. They will be merged. 
   Length<-Length[,list(SUM_FREQUENCY=sum(SUM_FREQUENCY)),by=c("SPECIES","YEAR","AREA2","GEAR","MONTH","CRUISE","VES_AKR_ADFG","HAUL_JOIN","LENGTH","YAGMH_STONS","YAGMH_SNUM")] # sum the frequency of each observed length at haul level, summed over the excluded variables from this list: SEX. Also get rid of variables no longer needed that are the same for each flattened observation: EXTRAPOLATED_WEIGHT, SOURCE, AREA, QUARTER, NUMB
-  L_YAGMH<-Length[,list(YAGMH_SFREQ=sum(SUM_FREQUENCY)),by=c("CRUISE","VES_AKR_ADFG","HAUL_JOIN")] # Sum again, aggregating over year, gear, month, cruise, ves_akr_adfg, length, yagmh_stons, yagmh_snum. This gives the amount to fish sampled for length for each vessel, cruise and haul.
+  
+  L_YAGMH<-Length[,list(YAGMH_SFREQ=sum(SUM_FREQUENCY)),by=c("CRUISE","VES_AKR_ADFG","HAUL_JOIN")] # Sum again, aggregating over year, gear, month, cruise, ves_akr_adfg, length, yagmh_stons, yagmh_snum. This gives the amount of fish sampled for length for each vessel, cruise and haul.
   Length<-merge(Length,L_YAGMH,by=c("CRUISE","VES_AKR_ADFG","HAUL_JOIN"), all.x=T) # join the amount of fish sampled calculated previous in the big table Length. this spreads the aggregated number of fish sampled over their respective cruise, ves_akr_adfg, and haul_join observations.
+ 
   L_YAGM<-Length[,list(YAGM_STONS=sum(YAGMH_STONS),YAGM_SNUM=sum(YAGMH_SNUM),YAGM_SFREQ=sum(SUM_FREQUENCY)),by=c("AREA2","GEAR","MONTH","YEAR")] # Sum STONS, SNUM, Frequency over haul_join and vessel
   Length<-merge(Length,L_YAGM,by=c("YEAR","AREA2","GEAR","MONTH"), all.x=T) # join this to Length, spreading the sums over their observations.
+  
   L_YAG<-Length[,list(YAG_STONS=sum(YAGMH_STONS),YAG_SNUM=sum(YAGMH_SNUM),YAG_SFREQ=sum(SUM_FREQUENCY)),by=c("AREA2","GEAR","YEAR")] # same as previous but aggregating over months
   Length<-merge(Length,L_YAG,by=c("YEAR","AREA2","GEAR"), all.x=T) # join it in
+  
   L_YG<-Length[,list(YG_STONS=sum(YAGMH_STONS),YG_SNUM=sum(YAGMH_SNUM),YG_SFREQ=sum(SUM_FREQUENCY)),by=c("GEAR","YEAR")] # same as previous but aggregating over area2
   Length<-merge(Length,L_YG,by=c("YEAR","GEAR"), all.x=T) # join it in
+  
   L_Y<-Length[,list(Y_STONS=sum(YAGMH_STONS),Y_SNUM=sum(YAGMH_SNUM),Y_SFREQ=sum(SUM_FREQUENCY)),by=c("YEAR")] # same as previous but aggregating over gear. This gives a total weight, number, and frequency of each length observation for every year.
   Length<-merge(Length,L_Y,by=c("YEAR"), all.x=T) # join it in
   
-  x<-merge(Length,CATCHT4,by=c("SPECIES","YEAR","AREA2","GEAR","MONTH"),all.x=T) # merge the observer length observations with catch4: aggregations with the same levels as Length. 
+  # MERGE OBSERVER DATA WITH LANDINGS DATA
+  x<-merge(Length,CATCHT4,by=c("SPECIES","YEAR","AREA2","GEAR","MONTH"),all.x=T) # merge the observer length observations with catch4: aggregations with the same YAGM variable values as Length. all.x=T means rows from Length which have no matching rows in CATCH4 are included. So NAs here mean 
   
-  y2<-x[!is.na(YAGM_TNUM)] # exclude ~175,000 observations with NA in YAGM_TNUM. i.e., where there is no total number of fish for the year, area, gear, month aggregation from the fishery (CATCH4). 
+  y2<-x[!is.na(YAGM_TNUM)] # exclude ~175,000 observations with NA in YAGM_TNUM. i.e., where there is no total number of fish for the year, area, gear, month aggregation from the fishery (CATCH4) for some values of Length. This means that there are observer observations outside of the landings YAGM strata in CATCH4. This is (at least partially) because Length goes back to '86 where CATCH4 only goes to '91.    
+  # begin testing
+  # how many NA's are there and where do they come from? Because there shouldn't be any NAs where years match between Landings and CATCH4
+  x[is.na(YAGM_TNUM),.N] # = 175890
+  x[,.N, by=YEAR]
+  mismatch.years = unique(Length$YEAR)[!(unique(Length$YEAR) %in% unique(CATCHT4$YEAR))]
+  Length[YEAR %in% mismatch.years, .N] # = 175580. OK that explains most of the NAs - they come from years in Landings that don't exist in CATCH4. But what about the rest (310 rows)?
   
+  temp = x[!(YEAR %in% mismatch.years) & is.na(YAGM_TNUM)] # these are the 310 rows with NAs still. How can this be possible when CATCH4 was calculated based on Landings?? This implies there was observer data for a YAGM strata for which there were no landings data. 
+  temp[,.N, by=HAUL_JOIN] # these are the hauls that had observer data, but not YAGM strata landings data. This is highly irregular.
+  # end testing
   
-  y2$WEIGHT1<-y2$SUM_FREQUENCY/y2$YAGMH_SFREQ  ## individual weight of length in length sample at the haul level. # weight here refers to the leverage weight the observation will have in later analysis I think. i.e., the proportion of lengths l observed to the total number of lengths for a year, area, gear, month, haul. 
-  y2$WEIGHT2<-y2$YAGMH_SNUM/y2$YAGM_SNUM        ## weight of haul numbers for the year, area, gear, month strata (proportion of total observer samples for strata). # i.e., each haul will have a different weight proportional to the number of samples taken on that haul relative to the number taken across all hauls
-  y2$WEIGHT3<-y2$YAGM_TNUM/y2$YG_TNUM           ## weight of total number of catch by year/area/gear/month to year/gear catch for 3 fishery models. # i.e., each month will have a different weight for combined gear types: the proportion (contribution) of each month catch numbers to the annual catch.
-  y2$WEIGHT4<-y2$YAGM_TNUM/y2$Y_TNUM             ## weight of total number of catch by year/area/gear/month to year catch for single fishery models. # i.e., the proportion of each area, gear, month catch to yearly catch. 
+  y2$WEIGHT1<-y2$SUM_FREQUENCY/y2$YAGMH_SFREQ  ## OBSERVER BASED. individual weight of length bins in length sample at the haul level. # weight here refers to the leverage weight the observation will have in later analysis I think. i.e., the proportion of lengths l observed to the total number of lengths taken in the haul it came from. 
+  y2$WEIGHT2<-y2$YAGMH_SNUM/y2$YAGM_SNUM        ## OBSERVER AND CATCH RECORD BASED. weight of haul numbers for the year, area, gear, month strata (proportion of total observer-based estimate of numbers of fish in a haul for strata). # i.e., each haul will have a different weight proportional to the estimated number of fish taken on that haul (based on observer data) relative to the number taken across all hauls in the strata.
+  y2$WEIGHT3<-y2$YAGM_TNUM/y2$YG_TNUM           ## CATCH RECORD BASED, INCLUDING IMPUTED DATA USING AVERAGES BASED ON OBSERVER DATA. weight of total number of catch by year/area/gear/month to year/gear catch for 3 fishery models. # i.e., each month will have a different weight for combined gear types: the proportion (contribution) of each month catch numbers to the annual catch.
+  y2$WEIGHT4<-y2$YAGM_TNUM/y2$Y_TNUM             ## CATCH RECORD BASED, INCLUDING IMPUTED DATA USING AVERAGES BASED ON OBSERVER DATA. weight of total number of catch by year/area/gear/month to year catch for single fishery models. # i.e., the proportion of each area, gear, month catch to yearly catch. 
   
   
   y3<- y2[,c("YEAR","GEAR","AREA2","MONTH","CRUISE",
@@ -228,106 +250,181 @@ Length$YAGMH_SNUM<-Length$NUMB # number of fish in the haul. this is just a rena
              "YAGMH_SFREQ","YAGM_SFREQ", "YG_SFREQ","Y_SFREQ","YAGM_TNUM","YG_TNUM","Y_TNUM","YAGMH_SNUM",
              "YAGM_SNUM","YG_SNUM","YG_SNUM","Y_SNUM","WEIGHT1","WEIGHT2","WEIGHT3","WEIGHT4")]     # get rid of some unneeded variables
   
-  y3$WEIGHTX<-y3$WEIGHT1*y3$WEIGHT2*y3$WEIGHT4   ## weight of individual length sample for single fishery model. # multiply individual observation weight at haul level by weight of the haul by the weight of the year/area/gear/month. So this should give the weight each observation has scaled by the haul weight and month/gear/year/area weight 
+  y3$WEIGHTX<-y3$WEIGHT1*y3$WEIGHT2*y3$WEIGHT4   ## weight of individual length sample for single fishery model. # multiply individual observation weight at haul level by weight of the haul by the weight of the year/area/gear/month. So this should give the weight each observation has, scaled by the haul weight and month/gear/year/area weight 
   y3$WEIGHTX_GEAR<-y3$WEIGHT1*y3$WEIGHT2*y3$WEIGHT3 # similar to previous but including gear weights
   y3$STRATA<-paste(y3$AREA2,y3$MONTH,y3$GEAR,sep="_")  ## simple strata of area, month, gear for clustered bootstrap. # create a unique identifier (strata) for area, month, and gear. 
   y3$STRATA1<-as.numeric(as.factor(y3$STRATA)) # forces an index to each unique factor (strata)
-  y3$HAUL_JOIN1<-as.numeric(as.factor(y3$HAUL_JOIN)) # same as previous for haul_join
+  y3$HAUL_JOIN1<-as.numeric(as.factor(y3$HAUL_JOIN)) # RESULT! y3 is what needs to be used for ISS I think. same as previous but for haul_join
   
   
-  y4<-y3[YAGM_SFREQ>30][,list(WEIGHT=sum(WEIGHTX)),by=c("LENGTH","YEAR")]  ## setting minumal sample size to 30 lengths for Year, area, gear, month strata. # this reduced nrow by about 1000. this line also creates a new variable WEIGHT, which is the sum of WEIGHTX across length and year. i.e., the weight of each length for every year. 
+  y4<-y3[YAGM_SFREQ>30][,list(WEIGHT=sum(WEIGHTX)),by=c("LENGTH","YEAR")]  ## setting minumal sample size to 30 lengths for Year, area, gear, month strata. # sample size here means haul numbers of fish, not observer sample number. this reduced nrow by about 1000. this line also creates a new variable WEIGHT, which is the sum of WEIGHTX across length and year. i.e., the weight of each length for every year. 
   y4.1<-y3[YAGM_SFREQ>30][,list(WEIGHT_GEAR=sum(WEIGHTX_GEAR)),by=c("LENGTH","GEAR","YEAR")]  ## setting minumal sample size to 30 lengths for Year, area, gear, month strata. to be used in the multiple gear fisheries section below.
   
   
   y5<-y4[,list(TWEIGHT=sum(WEIGHT)),by=c("YEAR")] # TWEIGHT is I think the total weight summed across length bins for every year. sum(TWEIGHT) = 1.9. Shouldn't this sum to 1??
   y5=merge(y4,y5) # merge the individual length weights with their respective year weights.
-  y5$FREQ<-y5$WEIGHT/y5$TWEIGHT # the FREQuency, or relative weight, between length bins to the total annual weight. 
+  y5$FREQ<-y5$WEIGHT/y5$TWEIGHT # RESULT! This is the preliminary proportions at length. They sum to 1 for every year. the FREQuency, or relative weight, between length bins to the total annual weight. 
   y6<-y5[,-c("WEIGHT","TWEIGHT")] # saving a version with just FREQ
   
   grid<-data.table(expand.grid(YEAR=unique(y5$YEAR),LENGTH=1:max(y5$LENGTH))) # make a grid for every year, have a length bin by centemeter from 1 to max length
   y7<-merge(grid,y6,all.x=TRUE,by=c("YEAR","LENGTH")) # merge the grid with y6, which is the expanded frequency of proportions for each length bin observed for each year.
-  y7[is.na(FREQ)]$FREQ <-0                                  ## this is the proportion at length for a single fishery. # The NAs are where there were no observations for that length bin in that year so call them zero. This is what must be input into the assessment model.
+y7[is.na(FREQ)]$FREQ <-0                                  # RESULT! ## this is the proportion at length for an aggregated-gear fishery. # The NAs are where there were no observations for that length bin in that year so call them zero. This is what must be input into the assessment model.
   
-  ## calculations for multiple gear fisheries. # same as above but with gear in the grid too.
+
+# ISS just bootstrap length frequency to start ####
+# - use y2
+c1y2.1 = y2[,.(YEAR, HAUL_JOIN, LENGTH, SUM_FREQUENCY)] # clean y2 with only relevant variables
+c1y2.2 = c1y2.1[, .SD[rep(.I, SUM_FREQUENCY)]] # expand data by count (SUM_FREQUENCY) column. 
+
+u.haul = unique(c1y2.2$HAUL_JOIN) # find the names of each unique haul
+
+test.set1 = c1y2.2[HAUL_JOIN==u.haul[1], .(LENGTH)] # one set of length measurements
+
+boot1 = data.table(LENGTH=base::sample(test.set1$LENGTH, replace = TRUE)) # bootstrap one sample
+
+# count the frequency of each observed length and assign them to a grid of length bins
+grid.test = data.table(LENGTH = 1:141) # above there is the grid min and max = 1:141
+freqt = merge(grid.test, test.set1[,.(freq_og=.N),by=LENGTH], by="LENGTH", all.x = T) # table with length bins and frequency (number of fish) observed in each bin
+freqt = merge(freqt, boot1[,.(freq_sim=.N),by=LENGTH], by="LENGTH", all.x = T) %>% # add resampled frequency to table %>% replace NAs with zero 
+  replace(is.na(.), 0)
+
+
+freqt %>% mutate(prop_og = freq_og/sum(freq_og), .keep = "unused") %>% # make a proportions at length table including og and sim data.
+  mutate(prop_sim = freq_sim/sum(freq_sim), .keep = "unused") -> propt
   
-  y5.1<-y4.1[,list(TWEIGHT=sum(WEIGHT_GEAR)),by=c("GEAR","YEAR")] 
-  y5.1=merge(y4.1,y5.1)
-  y5.1$FREQ<-y5.1$WEIGHT_GEAR/y5.1$TWEIGHT
-  y6.1<-y5.1[,-c("WEIGHT_GEAR","TWEIGHT")]
-  
-  grid<-data.table(expand.grid(YEAR=unique(y6.1$YEAR),GEAR=unique(y6.1$GEAR),LENGTH=1:max(y6.1$LENGTH)))
-  y7.1<-merge(grid,y6.1,all.x=TRUE,by=c("YEAR","GEAR","LENGTH"))
-  y7.1[is.na(FREQ)]$FREQ <-0   ## this is the proportion at length by gear
-  
-  # this and below must be for the bootstrap attempt
-  y3.1<- y3[,c("YEAR","HAUL_JOIN1","STRATA1","LENGTH", "SUM_FREQUENCY", "YAGMH_SFREQ", 
-               "YAGMH_SNUM","YAGM_SFREQ", "YG_SFREQ","Y_SFREQ","YAGM_TNUM","YG_TNUM","Y_TNUM",
-               "YAGM_SNUM","YG_SNUM","Y_SNUM")] 
-  
-  y3.1<-y3.1[YAGM_SFREQ>30] 
-  
-  
-  
-  years<-unique(y3.1$YEAR)
-  
-  ESS<-vector("list",length=length(years))
-  
-  for(i in 1:length(years)){ # looks like this is counting the number of observed lengths (N), number of unique hauls, and unique strata (unique area/month/gear combinations) as estimates of ISS
-    data<-y3.1[YEAR==years[i]]
-    N = sum(data$SUM_FREQUENCY)
-    H = length(unique(data$HAUL_JOIN1))
-    S = length(unique(data$STRATA1))
-    
-    #d_EXP<- vcdExtra::expand.dft(data, freq="SUM_FREQUENCY")
-    #cm   <- fishmethods::clus.mean(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1, clustotal = round(d_EXP$YAGM_TNUM), rho=clus.rho(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1)$icc[1],nboot = 10000)
-    
-    ESS[[i]] <-data.table(YEAR=years[i],BootESS=NA,df=NA,NSAMP=N,NHAUL=H,NSTRATA=S)
-    print(years[i])
-  }
-  
-  
-  y3.2<- y3[,c("YEAR","GEAR","HAUL_JOIN1","STRATA1","LENGTH", "SUM_FREQUENCY", "YAGMH_SFREQ", 
-               "YAGM_SFREQ", "YG_SFREQ","YAGM_TNUM","YG_TNUM","YAGMH_SNUM","YAGM_SNUM","YG_SNUM")] 
-  
-  y3.2<-y3.2[YAGM_SFREQ>30] 
-  
-  years<-unique(y3.2$YEAR)
-  gears=unique(y3.2$GEAR)
-  
-  b=1
-  ESS.1<-vector("list",length=length(years)*length(gears))
-  for(j in 1:length(gears)){ # same as previous loop but for the three gear categories separately
-    for(i in 1:length(years)){
-      
-      data<-y3.2[YEAR==years[i]&GEAR==gears[[j]]]
-      if(nrow(data>0)){
-        N = sum(data$SUM_FREQUENCY)
-        H = length(unique(data$HAUL_JOIN1))
-        S = length(unique(data$STRATA1))
-        
-        
-        #d_EXP<-vcdExtra::expand.dft(data, freq="SUM_FREQUENCY")
-        
-        #if(S>1){
-        #        cm=fishmethods::clus.mean(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1, clustotal = round(d_EXP$YAGM_SNUM), rho=clus.rho(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1)$icc[1],nboot = 10000)
-        #        } else {cm <- rep(NA,12)
-        #        print("Only one strata for this year and gear combination")} 
-      }
-      
-      ESS.1[[b]] <-data.table(YEAR=years[i],GEAR=gears[[j]],BootESS=NA,df=NA,NSAMP=N,NHAUL=H,NSTRATA=S)
-      b <- b+1
-      print(paste0(gears[[j]]," in ",years[i]))
-    }
-  }
+
+# RSS function
+rss = function(prop_sim, prop_og){
+  sum(prop_sim * (1 - prop_sim)) / sum((prop_sim - prop_og)^2)
+}
+
+rss(propt$prop_sim, propt$prop_og) # ~ 70-180 is the min to max. This seems high considering only 103 fish were lengthed.
+
+
+# do it for 100 bootstrap iterations
+
+nboot = 100
+boot.n = list()
+for (i in 1:nboot){
+  boot.n[[i]] = data.table(LENGTH=base::sample(test.set1$LENGTH, replace = TRUE))
+}
+
+
+
+# ISS level up: bootstrap hauls and lengths ####
+# - create a list with each expanded haul 
+# - within each haul, have a vector of length observations, e.g., 43, 43, 44, 45, 46, 46, 47, ...
+# - sample the hauls with replacement of size n_h
+# - for each sampled haul, sample the length vector with replacement of size n_l
+# - store the bootstrapped samples in a list of length 100 iterations with sublist of sampled hauls with submatrix of nrow=100 and columns sampled lengths ncol = n_l
+# - calculate RSS between observed proportions and simulated proportions for each observed set of length proportions
+# - calculate ISS by taking harmonic mean of RSS between bootstrapped iterations
   
   
-  ESS=do.call(rbind, ESS)
-  ESS.1=do.call(rbind, ESS.1)
-  LF1<-merge(y7,ESS,by="YEAR")
-  LF1.1<-merge(y7.1,ESS.1,by=c("YEAR","GEAR"))
-  LF1.1<-LF1.1[NSAMP>0]
-  LF<-list(LF1,LF1.1)
-# }
+# Start with Ns: How many hauls were there every year? How many times were observer samples taken?
+# use y3 object. But do I have the expanded numbers at length for every haul in y3? Even the imputed ones? 
+  
+  
+  
+  
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#   ## calculations for multiple gear fisheries. # same as above but with gear in the grid too.
+#   
+#   y5.1<-y4.1[,list(TWEIGHT=sum(WEIGHT_GEAR)),by=c("GEAR","YEAR")] 
+#   y5.1=merge(y4.1,y5.1)
+#   y5.1$FREQ<-y5.1$WEIGHT_GEAR/y5.1$TWEIGHT
+#   y6.1<-y5.1[,-c("WEIGHT_GEAR","TWEIGHT")]
+#   
+#   grid<-data.table(expand.grid(YEAR=unique(y6.1$YEAR),GEAR=unique(y6.1$GEAR),LENGTH=1:max(y6.1$LENGTH)))
+#   y7.1<-merge(grid,y6.1,all.x=TRUE,by=c("YEAR","GEAR","LENGTH"))
+#   y7.1[is.na(FREQ)]$FREQ <-0   ## this is the proportion at length by gear
+#   
+#   # this and below must be for the bootstrap attempt
+#   y3.1<- y3[,c("YEAR","HAUL_JOIN1","STRATA1","LENGTH", "SUM_FREQUENCY", "YAGMH_SFREQ", 
+#                "YAGMH_SNUM","YAGM_SFREQ", "YG_SFREQ","Y_SFREQ","YAGM_TNUM","YG_TNUM","Y_TNUM",
+#                "YAGM_SNUM","YG_SNUM","Y_SNUM")] 
+#   
+#   y3.1<-y3.1[YAGM_SFREQ>30] 
+#   
+#   
+#   
+#   years<-unique(y3.1$YEAR)
+#   
+#   ESS<-vector("list",length=length(years))
+#   
+#   for(i in 1:length(years)){ # looks like this is counting the number of observed lengths (N), number of unique hauls, and unique strata (unique area/month/gear combinations) as estimates of ISS
+#     data<-y3.1[YEAR==years[i]]
+#     N = sum(data$SUM_FREQUENCY)
+#     H = length(unique(data$HAUL_JOIN1))
+#     S = length(unique(data$STRATA1))
+#     
+#     #d_EXP<- vcdExtra::expand.dft(data, freq="SUM_FREQUENCY")
+#     #cm   <- fishmethods::clus.mean(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1, clustotal = round(d_EXP$YAGM_TNUM), rho=clus.rho(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1)$icc[1],nboot = 10000)
+#     
+#     ESS[[i]] <-data.table(YEAR=years[i],BootESS=NA,df=NA,NSAMP=N,NHAUL=H,NSTRATA=S)
+#     print(years[i])
+#   }
+#   
+#   
+#   y3.2<- y3[,c("YEAR","GEAR","HAUL_JOIN1","STRATA1","LENGTH", "SUM_FREQUENCY", "YAGMH_SFREQ", 
+#                "YAGM_SFREQ", "YG_SFREQ","YAGM_TNUM","YG_TNUM","YAGMH_SNUM","YAGM_SNUM","YG_SNUM")] 
+#   
+#   y3.2<-y3.2[YAGM_SFREQ>30] 
+#   
+#   years<-unique(y3.2$YEAR)
+#   gears=unique(y3.2$GEAR)
+#   
+#   b=1
+#   ESS.1<-vector("list",length=length(years)*length(gears))
+#   for(j in 1:length(gears)){ # same as previous loop but for the three gear categories separately
+#     for(i in 1:length(years)){
+#       
+#       data<-y3.2[YEAR==years[i]&GEAR==gears[[j]]]
+#       if(nrow(data>0)){
+#         N = sum(data$SUM_FREQUENCY)
+#         H = length(unique(data$HAUL_JOIN1))
+#         S = length(unique(data$STRATA1))
+#         
+#         
+#         #d_EXP<-vcdExtra::expand.dft(data, freq="SUM_FREQUENCY")
+#         
+#         #if(S>1){
+#         #        cm=fishmethods::clus.mean(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1, clustotal = round(d_EXP$YAGM_SNUM), rho=clus.rho(popchar =d_EXP$LENGTH , cluster = d_EXP$STRATA1)$icc[1],nboot = 10000)
+#         #        } else {cm <- rep(NA,12)
+#         #        print("Only one strata for this year and gear combination")} 
+#       }
+#       
+#       ESS.1[[b]] <-data.table(YEAR=years[i],GEAR=gears[[j]],BootESS=NA,df=NA,NSAMP=N,NHAUL=H,NSTRATA=S)
+#       b <- b+1
+#       print(paste0(gears[[j]]," in ",years[i]))
+#     }
+#   }
+#   
+#   
+#   ESS=do.call(rbind, ESS)
+#   ESS.1=do.call(rbind, ESS.1)
+#   LF1<-merge(y7,ESS,by="YEAR")
+#   LF1.1<-merge(y7.1,ESS.1,by=c("YEAR","GEAR"))
+#   LF1.1<-LF1.1[NSAMP>0]
+#   LF<-list(LF1,LF1.1)
+# # }
 
 
 
