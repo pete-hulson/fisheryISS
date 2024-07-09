@@ -18,11 +18,49 @@ haul_to_trip <- function(catch,
   catch <- catch %>%
     filter(year >= yrs)
   
+  # catch1 <- catch1 %>%
+  # filter(lubridate::ymd(catch_activity_date) == as.Date("2015-05-11"))  
+  
+  obs_catch <- obs_catch %>%
+    filter(year >= yrs)
+  
   lfreq <- lfreq %>%
     filter(year >= yrs)
   
   specimen <- specimen %>%
     filter(year >= yrs)
+  
+  ### New stuff ###
+  
+  # Creating unique "trip_join" values
+  catch <- catch %>%
+    tidytable::select(year, vessel_id, species_name, deployment_trip_start_date,
+                      deployment_trip_end_date, weight_posted) %>%
+    tidytable::rename(permit = vessel_id) %>%
+    tidytable::mutate(trip_join = cur_group_id(), .by = c(permit, 
+                                                          deployment_trip_start_date, 
+                                                          deployment_trip_end_date)) %>%
+    tidytable::distinct(weight_posted, .keep_all = TRUE) %>%
+    tidytable::summarise(trip_weight = sum(weight_posted), 
+                         .by = c(permit, 
+                                 deployment_trip_start_date, 
+                                 deployment_trip_end_date,
+                                 trip_join))
+  
+
+  # Left join obs_catch with catch based on permit and haul_date within date_range
+  obs_catch_within_range <- obs_catch %>%
+    left_join(catch, by = "permit") %>%
+    filter(haul_date >= deployment_trip_start_date & haul_date <= deployment_trip_end_date)
+  
+  # Anti join to find haul_date outside the date range
+  obs_catch_outside_range <- obs_catch %>%
+    anti_join(obs_catch_within_range, by = c("permit", "haul_date")) %>%
+    select(names(obs_catch))
+  
+  
+  
+  ### Original stuff ###
   
   # Grouping and translating catch tibble
   catch.t <- catch %>%
@@ -30,7 +68,6 @@ haul_to_trip <- function(catch,
     mutate(haul_join_group = first(haul_join), 
            extrapolated_number_sum = sum(extrapolated_number)) %>%
     ungroup()
-  
   
   catch %>%
     tidytable::summarize(trip_join = first(haul_join), 

@@ -86,7 +86,7 @@ yrs = 2015 # >= year filter
 fsh_iss(iters = iters, 
         lfreq_data = lfreq, 
         specimen_data = specimen, 
-        catch_data = catch, 
+        catch_data = obs_catch, 
         r_t = read_test, 
         yrs = yrs, 
         bin = 1, 
@@ -106,7 +106,7 @@ fsh_iss(iters = iters,
 # run at trip level ----
 
 # run function to convert haul to trip level
-trip_data <- haul_to_trip(catch, 
+trip_data <- haul_to_trip(catch = "obs_catch", 
                           specimen, 
                           lfreq,
                           yrs) 
