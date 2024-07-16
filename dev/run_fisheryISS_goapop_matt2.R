@@ -106,7 +106,7 @@ fsh_iss(iters = iters,
 # run at trip level ----
 
 # run function to convert haul to trip level
-trip_data <- haul_to_trip(catch = "obs_catch", 
+trip_data <- haul_to_trip(catch, 
                           specimen, 
                           lfreq,
                           yrs) 

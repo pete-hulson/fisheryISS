@@ -1,6 +1,6 @@
 #' transform haul level data to trip level data
 #'
-#' @param catch haul catch data 
+#' @param catch haul catch observer data 
 #' @param specimen specimen age-length data 
 #' @param lfreq length frequency data
 #' @param yrs filter for years more recent than this defined year
@@ -18,9 +18,6 @@ haul_to_trip <- function(catch,
   catch <- catch %>%
     filter(year >= yrs)
   
-  # catch1 <- catch1 %>%
-  # filter(lubridate::ymd(catch_activity_date) == as.Date("2015-05-11"))  
-  
   obs_catch <- obs_catch %>%
     filter(year >= yrs)
   
@@ -30,7 +27,6 @@ haul_to_trip <- function(catch,
   specimen <- specimen %>%
     filter(year >= yrs)
   
-  ### New stuff ###
   
   # Creating unique "trip_join" values
   catch <- catch %>%
@@ -47,83 +43,75 @@ haul_to_trip <- function(catch,
                                  deployment_trip_end_date,
                                  trip_join))
   
-
-  # Left join obs_catch with catch based on permit and haul_date within date_range
-  obs_catch_within_range <- obs_catch %>%
-    left_join(catch, by = "permit") %>%
-    filter(haul_date >= deployment_trip_start_date & haul_date <= deployment_trip_end_date)
   
-  # Anti join to find haul_date outside the date range
-  obs_catch_outside_range <- obs_catch %>%
-    anti_join(obs_catch_within_range, by = c("permit", "haul_date")) %>%
-    select(names(obs_catch))
-  
-  
-  
-  ### Original stuff ###
+  # Join obs_catch with catch based on permit and haul_date; assign trip_join values
+  obs_catch %>%
+    tidytable::left_join(catch, by = "permit") %>%
+    tidytable::filter(haul_date >= deployment_trip_start_date & haul_date <= deployment_trip_end_date) %>%
+    tidytable::select(-c(deployment_trip_start_date, deployment_trip_end_date, trip_weight)) -> catch
   
   # Grouping and translating catch tibble
-  catch.t <- catch %>%
-    group_by(cruise, permit, year) %>%
-    mutate(haul_join_group = first(haul_join), 
-           extrapolated_number_sum = sum(extrapolated_number)) %>%
-    ungroup()
+  #catch.t <- catch %>%
+    #group_by(cruise, permit, year) %>%
+    #mutate(haul_join_group = first(haul_join), 
+           #extrapolated_number_sum = sum(extrapolated_number)) %>%
+    #ungroup()
   
   catch %>%
-    tidytable::summarize(trip_join = first(haul_join), 
+    tidytable::summarize(#trip_join = first(trip_join), 
                          num_hls = .N,
-                         ext_num = sum(extrapolated_number), .by = c(year, species, cruise, permit))-> catch.p
+                         ext_num = sum(extrapolated_number), .by = c(year, species, cruise, permit, trip_join))-> catch.p
 
   # Matching haul_join values from catch to specimen tibble
-  specimen.t <- specimen %>%
-    left_join(catch.t %>% select(haul_join, haul_join_group), by = "haul_join") %>%
-    filter(!is.na(haul_join_group)) %>%
-    mutate(haul_join = haul_join_group) %>%
-    select(-haul_join_group)
+  #specimen.t <- specimen %>%
+    #left_join(catch.t %>% select(haul_join, haul_join_group), by = "haul_join") %>%
+    #filter(!is.na(haul_join_group)) %>%
+    #mutate(haul_join = haul_join_group) %>%
+    #select(-haul_join_group)
   
   specimen %>% 
     tidytable::select(year, species, haul_join, sex, age, length, performance) %>% 
     tidytable::left_join(catch %>% 
-                           tidytable::select(year, species, haul_join, cruise, permit)) %>% 
+                           tidytable::select(year, species, haul_join, cruise, permit, trip_join)) %>% 
     tidytable::drop_na() %>%
-    tidytable::mutate(trip_join = first(haul_join), .by = c(year, species, cruise, permit)) %>% 
+    #tidytable::mutate(trip_join = first(haul_join), .by = c(year, species, cruise, permit)) %>% 
     tidytable::select(year, species, trip_join, sex, age, length, performance) -> specimen.p
   
   # Matching haul_join values from catch to lfreq tibble
-  lfreq.t <- lfreq %>%
-    left_join(catch.t %>% select(haul_join, haul_join_group), by = "haul_join") %>%
-    filter(!is.na(haul_join_group)) %>%
-    mutate(haul_join = haul_join_group) %>%
-    select(-haul_join_group)
+  #lfreq.t <- lfreq %>%
+    #left_join(catch.t %>% select(haul_join, haul_join_group), by = "haul_join") %>%
+    #filter(!is.na(haul_join_group)) %>%
+    #mutate(haul_join = haul_join_group) %>%
+    #select(-haul_join_group)
    
   lfreq %>% 
     tidytable::select(year, species, haul_join, sex, length, frequency, performance) %>% 
     tidytable::left_join(catch %>% 
-                           tidytable::select(year, species, haul_join, cruise, permit)) %>% 
+                           tidytable::select(year, species, haul_join, cruise, permit, trip_join)) %>% 
     tidytable::drop_na() %>% 
-    tidytable::mutate(trip_join = first(haul_join), .by = c(year, species, cruise, permit)) %>% 
+    #tidytable::mutate(trip_join = first(haul_join), .by = c(year, species, cruise, permit)) %>% 
     tidytable::summarise(frequency = sum(frequency),
                          performance = median(performance), .by = c(year, species, trip_join, sex, length)) -> lfreq.p
 
   # Cleaning up catch tibble
-  catch.t <- catch.t %>%
-    group_by(haul_join) %>%
-    mutate(haul_join = haul_join_group,
-           extrapolated_number = extrapolated_number_sum) %>%
-    select(-haul_join_group, -extrapolated_number_sum)
+  #catch.t <- catch.t %>%
+    #group_by(haul_join) %>%
+    #mutate(haul_join = haul_join_group,
+           #extrapolated_number = extrapolated_number_sum) %>%
+    #select(-haul_join_group, -extrapolated_number_sum)
   
   # Summarizing lfreq observations by haul_join/sex/length
-  lfreq.t <- lfreq.t %>%
-    group_by(year, haul_join, sex, length) %>%
-    summarize(frequency = sum(frequency),
-              performance = first(performance),
-              port_join = first(port_join),
-              species = first(species),
-              fmp_gear = first(fmp_gear),
-              fmp_area = first(fmp_area),
-              fmp_subarea = first(fmp_subarea))
+  #lfreq.t <- lfreq.t %>%
+    #group_by(year, haul_join, sex, length) %>%
+    #summarize(frequency = sum(frequency),
+              #performance = first(performance),
+              #port_join = first(port_join),
+              #species = first(species),
+              #fmp_gear = first(fmp_gear),
+              #fmp_area = first(fmp_area),
+              #fmp_subarea = first(fmp_subarea))
   
   # Return the translated tibbles
-  return(list(matt_c = catch.t, matt_s = specimen.t, matt_l = lfreq.t, pete_c = catch.p, pete_s = specimen.p, pete_l = lfreq.p))
+  return(list(pete_c = catch.p, pete_s = specimen.p, pete_l = lfreq.p))
 }
 
