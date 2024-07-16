@@ -22,11 +22,6 @@ map(here::here("R", source_files), source)
 # iters = 500
 iters = 10
 
-# for testing run time
-if(iters < 100){
-  st <- Sys.time()
-}
-
 # pull data ----
 query = TRUE
 species_code = "301"
@@ -64,6 +59,11 @@ read_test <- vroom::vroom(here::here('data', 'reader_tester.csv')) %>%
 
 # set sim parameters
 yrs = 2015 # >= year filter
+
+# for testing run time ----
+if(iters < 100){
+  st <- Sys.time()
+}
 
 # for testing
 # lfreq_data = lfreq
